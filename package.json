@@ -1,0 +1,17 @@
+{
+  "name": "deepseek-harness-pkg",
+  "version": "1.0.0",
+  "description": "Packaged DeepSeek Harness (dsh) with pnpm patches, built for cross-platform distribution.",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "start": "dsh web",
+    "build": "pnpm deploy --filter . --prod build_dir --legacy"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.1.0-rc.6"
+  }
+}
