@@ -7,6 +7,12 @@ on:
         description: '要打包的 dsh 版本 (例如: 0.1.0-rc.6 或 latest)'
         required: true
         default: '0.1.0-rc.6'
+  workflow_call:
+    inputs:
+      dsh_version:
+        description: '要打包的 dsh 版本 (例如: 0.1.0-rc.6 或 latest)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -43,7 +49,7 @@ jobs:
       - name: Pin dsh version and install dependencies
         shell: bash
         run: |
-          pnpm add "@deepseek-ai/dsh@${{ github.event.inputs.dsh_version }}" --save-exact
+          pnpm add "@deepseek-ai/dsh@${{ inputs.dsh_version || github.event.inputs.dsh_version }}" --save-exact
           pnpm install
 
       - name: Deploy package
@@ -52,6 +58,12 @@ jobs:
           pnpm deploy --filter . --prod build_dir --legacy
           cd build_dir
           npm install --omit=dev
+
+      - name: Apply dsh-web-app patch
+        shell: bash
+        working-directory: build_dir
+        run: |
+          node ../scripts/apply-dsh-web-app-patch.mjs
 
       - name: Verify patch applied
         shell: bash
@@ -96,11 +108,11 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: dsh-${{ github.event.inputs.dsh_version }}-${{ github.run_id }}
-          name: Release-dsh-${{ github.event.inputs.dsh_version }}
+          tag_name: dsh-${{ inputs.dsh_version || github.event.inputs.dsh_version }}-${{ github.run_id }}
+          name: Release-dsh-${{ inputs.dsh_version || github.event.inputs.dsh_version }}
           body: |
             # DeepSeek Harness Desktop Packages
-            - Version: ${{ github.event.inputs.dsh_version }}
+            - Version: ${{ inputs.dsh_version || github.event.inputs.dsh_version }}
             - Build ID: ${{ github.run_id }}
             - 使用说明见仓库 README.md
           draft: false

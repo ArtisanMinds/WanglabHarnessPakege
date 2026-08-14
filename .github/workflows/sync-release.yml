@@ -1,0 +1,74 @@
+name: Sync & Release DeepSeek Harness
+
+# 定期检测 npm 上的 @deepseek-ai/dsh 最新版本；发现新版本后自动调用
+# release.yml 构建四个平台并发布 Release。上游 deepseek-ai/deepseek-harness
+# 目前不发布 GitHub Release，同步信号以 npm dist-tag latest 为准。
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '手动指定要同步的 dsh 版本（留空自动取 npm latest）'
+        required: false
+        default: ''
+      force:
+        description: '即使版本未变化也强制重新构建'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      changed: ${{ steps.resolve.outputs.changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Resolve target version
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          target="${{ github.event.inputs.version }}"
+          if [ -z "$target" ]; then
+            target="$(npm view @deepseek-ai/dsh version)"
+          fi
+          echo "target version: $target"
+
+          # 上次已发布的版本，从 release tag `dsh-<version>-<run_id>` 解析。
+          last=""
+          if gh api "repos/${{ github.repository }}/releases/latest" >/dev/null 2>&1; then
+            tag="$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name)"
+            last="${tag#dsh-}"
+            last="${last%-*}"
+          fi
+          echo "last released version: ${last:-<none>}"
+
+          changed="false"
+          if [ "$target" != "$last" ] || [ "${{ github.event.inputs.force }}" = "true" ]; then
+            changed="true"
+          fi
+          echo "changed: $changed"
+
+          echo "version=$target" >> "$GITHUB_OUTPUT"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      dsh_version: ${{ needs.sync.outputs.version }}
