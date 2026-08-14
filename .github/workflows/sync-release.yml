@@ -41,6 +41,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # gh 在 Actions 中不一定会自动读取 GITHUB_TOKEN，显式导出。
+          export GH_TOKEN="$GITHUB_TOKEN"
 
           target="${{ github.event.inputs.version }}"
           if [ -z "$target" ]; then
@@ -48,12 +50,14 @@ jobs:
           fi
           echo "target version: $target"
 
-          # 上次已发布的版本，从 release tag `dsh-<version>-<run_id>` 解析。
+          # 上次已发布的版本，从最新 release tag `dsh-<version>-<run_id>` 解析。
           last=""
-          if gh api "repos/${{ github.repository }}/releases/latest" >/dev/null 2>&1; then
-            tag="$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name)"
+          if gh release list --limit 1 --json tagName --jq '.[0].tagName' >/tmp/last_release.txt 2>/tmp/last_release.err; then
+            tag="$(cat /tmp/last_release.txt)"
             last="${tag#dsh-}"
             last="${last%-*}"
+          else
+            echo "gh release list failed: $(cat /tmp/last_release.err)"
           fi
           echo "last released version: ${last:-<none>}"
 
@@ -72,3 +76,4 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       dsh_version: ${{ needs.sync.outputs.version }}
+
