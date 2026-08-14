@@ -12,6 +12,7 @@
     "build": "pnpm deploy --filter . --prod build_dir --legacy"
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.0-rc.6"
+    "@deepseek-ai/dsh": "0.1.0-rc.6",
+    "koffi": "^3.1.4"
   }
 }
