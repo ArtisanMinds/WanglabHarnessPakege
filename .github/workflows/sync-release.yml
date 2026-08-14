@@ -39,10 +39,10 @@ jobs:
       - name: Resolve target version
         id: resolve
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # gh 在 Actions 中不一定会自动读取 GITHUB_TOKEN，显式导出。
-          export GH_TOKEN="$GITHUB_TOKEN"
 
           target="${{ github.event.inputs.version }}"
           if [ -z "$target" ]; then
@@ -76,4 +76,5 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       dsh_version: ${{ needs.sync.outputs.version }}
+
 
