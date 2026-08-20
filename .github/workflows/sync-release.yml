@@ -77,4 +77,46 @@ jobs:
     with:
       dsh_version: ${{ needs.sync.outputs.version }}
 
+  # Sync & Release 完成后，把 main 分支上的版本号（@deepseek-ai/dsh 依赖
+  # 以及本仓库自身 version）同步为本次同步的版本，并实时推送到 main。
+  update-main:
+    needs: [sync, build]
+    if: needs.sync.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Update version on main
+        env:
+          TARGET: ${{ needs.sync.outputs.version }}
+        run: |
+          set -euo pipefail
+          # 更新 @deepseek-ai/dsh 依赖为本次同步的版本（save-exact）
+          npm pkg set "dependencies.@deepseek-ai/dsh=$TARGET"
+          # 本仓库自身 version 同步为该版本
+          npm version "$TARGET" --no-git-tag-version --allow-same-version
+          # 尽量让 lockfile 保持同步（失败不阻塞提交）
+          if command -v pnpm >/dev/null 2>&1 && [ -f pnpm-lock.yaml ]; then
+            pnpm install --lockfile-only --ignore-scripts 2>/dev/null || true
+          fi
+
+      - name: Commit and push to main
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "no version changes to commit"
+          else
+            git add package.json pnpm-lock.yaml
+            git commit -m "chore: sync version to ${{ needs.sync.outputs.version }}"
+            git push origin main
+            echo "pushed version ${{ needs.sync.outputs.version }} to main"
+          fi
+
 
