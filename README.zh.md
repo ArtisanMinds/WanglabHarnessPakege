@@ -126,7 +126,7 @@ pnpm patch @deepseek-ai/dsh-web-app   # 修改后 pnpm patch-commit 生成 .patc
 仓库内置 `sync-release.yml` 工作流：
 
 - **触发**：每 6 小时定时检查一次；也可在 Actions 页手动触发（可指定 `version`，或用 `force=true` 强制重建）。
-- **同步信号**：上游 `deepseek-ai/deepseek-harness` 目前不发布 GitHub Release，因此以 npm 的 `@deepseek-ai/dsh` `latest` 版本为准；发现新版本后自动以 `workflow_call` 调用 `release.yml`，无需手动点按钮，也无需配置 PAT。
+- **同步信号**：上游 `deepseek-ai/deepseek-harness` 目前不发布 GitHub Release，因此以 npm 的 `@deepseek-ai/dsh` 已发布版本为准；工作流通过 `scripts/resolve-latest-dsh-version.mjs` 取**已发布版本中 semver 最高者**（覆盖 `latest`、`next` 等所有 dist-tag，而不只是 `latest` —— 上游可能把新 rc 标在 `next` 上而 `latest` 仍是旧版）。发现新版本后自动以 `workflow_call` 调用 `release.yml`，无需手动点按钮，也无需配置 PAT。
 - **补丁容错**：换新版本时，`patchedDependencies` 中旧版本的补丁条目会被 pnpm 忽略（`allowUnusedPatches: true`），构建产物中的 `dsh-web-app` 由 `scripts/apply-dsh-web-app-patch.mjs` 幂等打上 LAN 开关补丁——只要上游保留 `0.0.0.0` 拦截逻辑即可自动适配；若上游改动了相关代码，脚本会明确报错提示更新。
 - **发布年龄门禁**：pnpm 11 默认会拒绝“太新”的依赖，已在 `pnpm-workspace.yaml` 用 `minimumReleaseAge: 0` 关闭，保证上游发布后立即可同步。`dangerouslyAllowAllBuilds: true` 允许新版本中未知的原生依赖执行构建脚本（与 n8n-pkg 的 `allow-scripts=true`、npm 默认行为一致）；若想收紧供应链，可换回显式 `allowBuilds` 名单。
 
@@ -134,7 +134,7 @@ pnpm patch @deepseek-ai/dsh-web-app   # 修改后 pnpm patch-commit 生成 .patc
 
 ```mermaid
 flowchart LR
-    N[npm @deepseek-ai/dsh latest] --> S[sync-release.yml 每6h检测]
+    N[npm @deepseek-ai/dsh 已发布版本中 semver 最高] --> S[sync-release.yml 每6h检测]
     S -->|发现新版本| R[release.yml workflow_call]
     R --> W[Windows 构建]
     R --> M[macOS arm64 构建]
