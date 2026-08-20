@@ -129,6 +129,7 @@ The built-in `sync-release.yml` workflow:
 - **Sync signal**: upstream `deepseek-ai/deepseek-harness` does not publish GitHub Releases, so the npm `@deepseek-ai/dsh` `latest` version is the source of truth; when a new version is found, `release.yml` is invoked via `workflow_call` — no manual button, no PAT required.
 - **Patch tolerance**: on version bumps, stale `patchedDependencies` entries are ignored (`allowUnusedPatches: true`), and `scripts/apply-dsh-web-app-patch.mjs` idempotently re-applies the LAN switch to the shipped `dsh-web-app` — as long as upstream keeps the `0.0.0.0` guard it adapts automatically; if upstream changes the relevant code, the script fails loudly with a message to update.
 - **Release-age gate**: pnpm 11 rejects "too new" dependencies by default; `minimumReleaseAge: 0` in `pnpm-workspace.yaml` disables that so a fresh upstream publish can be synced immediately. `dangerouslyAllowAllBuilds: true` lets unknown native dependencies in new versions run their build scripts (same behavior as n8n-pkg's `allow-scripts=true` and npm's default); to tighten supply-chain security, switch back to an explicit `allowBuilds` allowlist.
+- **Real-time `main` sync**: after the release completes, the `update-main` job bumps this repo's own `version` and the pinned `@deepseek-ai/dsh` dependency to the synced version, refreshes `pnpm-lock.yaml`, and commits + pushes those changes straight back to `main` — so the repository's `main` branch always reflects the latest shipped version.
 
 Workflow reference:
 
