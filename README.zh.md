@@ -62,8 +62,10 @@ Web UI 会打开在 `http://127.0.0.1:3080`。首次使用需要在界面里配�
 ```text
 .
 ├── .github/workflows/
-│   ├── release.yml                 # 跨平台构建 + 发布 Release（可手动触发或被 sync 调用）
-│   └── sync-release.yml            # 定时检测上游新版本，自动触发构建（自动同步）
+│   ├── release.yml                 # 基于 npm 的跨平台构建 + 发布
+│   ├── release-from-source.yml     # GitHub-only 版本的源码构建 + pre-release
+│   ├── sync-release.yml             # 定时检测 npm 版本并自动构建
+│   └── sync-source-release.yml      # 定时检测 GitHub Release 并触发源码构建
 ├── scripts/
 │   └── apply-dsh-web-app-patch.mjs # 幂等补丁脚本（换版本也能自动打上 LAN 开关补丁）
 ├── patches/                        # pnpm 补丁（patchedDependencies，固定版本可复现）
@@ -123,27 +125,36 @@ pnpm patch @deepseek-ai/dsh-web-app   # 修改后 pnpm patch-commit 生成 .patc
 
 ## 自动同步上游 Release
 
-仓库内置 `sync-release.yml` 工作流：
+仓库内置两条互补的定时工作流：
 
-- **触发**：每 6 小时定时检查一次；也可在 Actions 页手动触发（可指定 `version`，或用 `force=true` 强制重建）。
-- **同步信号**：上游 `deepseek-ai/deepseek-harness` 目前不发布 GitHub Release，因此以 npm 的 `@deepseek-ai/dsh` 已发布版本为准；工作流通过 `scripts/resolve-latest-dsh-version.mjs` 取**已发布版本中 semver 最高者**（覆盖 `latest`、`next` 等所有 dist-tag，而不只是 `latest` —— 上游可能把新 rc 标在 `next` 上而 `latest` 仍是旧版）。发现新版本后自动以 `workflow_call` 调用 `release.yml`，无需手动点按钮，也无需配置 PAT。
-- **补丁容错**：换新版本时，`patchedDependencies` 中旧版本的补丁条目会被 pnpm 忽略（`allowUnusedPatches: true`），构建产物中的 `dsh-web-app` 由 `scripts/apply-dsh-web-app-patch.mjs` 幂等打上 LAN 开关补丁——只要上游保留 `0.0.0.0` 拦截逻辑即可自动适配；若上游改动了相关代码，脚本会明确报错提示更新。
-- **发布年龄门禁**：pnpm 11 默认会拒绝“太新”的依赖，已在 `pnpm-workspace.yaml` 用 `minimumReleaseAge: 0` 关闭，保证上游发布后立即可同步。`dangerouslyAllowAllBuilds: true` 允许新版本中未知的原生依赖执行构建脚本（与 n8n-pkg 的 `allow-scripts=true`、npm 默认行为一致）；若想收紧供应链，可换回显式 `allowBuilds` 名单。
+- **npm 路径 — `sync-release.yml`**：每 6 小时检查一次，也可手动触发。通过 `scripts/resolve-latest-dsh-version.mjs` 取 npm 所有 dist-tag（`latest`、`next` 等）中 **semver 最高的已发布版本**，然后调用 `release.yml`；npm Release 完成后会同步更新 `main` 和锁文件。
+- **GitHub-only 路径 — `sync-source-release.yml`**：每 6 小时检查上游 GitHub Release 中 semver 最高的版本是否高于 npm `@deepseek-ai/dsh`。如果 GitHub 已发布而 npm 尚未发布，就调用 `release-from-source.yml`：克隆准确的 `dsh-v<version>` tag，执行 `pnpm install` 和 `pnpm run build`，部署构建后的 workspace 闭包，并将四个平台压缩包发布为 GitHub **pre-release**。由于该版本还不能从 npm 安装，源码 pre-release 不会更新 `main`。
+- **幂等性**：源码发布使用 `dsh-src-<version>-<run_id>` tag；源码工作流会跳过已经发布过的版本，npm 工作流会忽略 pre-release，因此两条路径不会反复互相触发。
+- **补丁容错**：`scripts/apply-dsh-web-app-patch.mjs` 会幂等地给产物中的 `dsh-web-app` 重新应用 LAN 开关补丁；如果上游修改了相关 guard，则明确失败并提示更新脚本。
+
+手动进行源码构建时，在 Actions 中触发 **Build and Pre-release DeepSeek Harness from Source**，填写不带 `dsh-v` 前缀的上游版本，例如 `0.1.2-alpha.1`。
 
 工作流引用关系：
 
 ```mermaid
 flowchart LR
     N[npm @deepseek-ai/dsh 已发布版本中 semver 最高] --> S[sync-release.yml 每6h检测]
-    S -->|发现新版本| R[release.yml workflow_call]
+    S -->|发现 npm 新版本| R[release.yml workflow_call]
+    U[上游 GitHub Release] --> SS[sync-source-release.yml 每6h检测]
+    SS -->|发现 npm 尚未发布的版本| SR[release-from-source.yml workflow_call]
     R --> W[Windows 构建]
+    SR --> W
     R --> M[macOS arm64 构建]
+    SR --> M
     R --> I[macOS x64 构建]
+    SR --> I
     R --> L[Linux 构建]
+    SR --> L
     W --> G[GitHub Release]
     M --> G
     I --> G
     L --> G
+    SR --> PR[GitHub pre-release]
 ```
 
 ## 安全说明

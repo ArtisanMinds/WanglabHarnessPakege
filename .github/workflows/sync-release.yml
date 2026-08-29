@@ -54,9 +54,10 @@ jobs:
           fi
           echo "target version: $target"
 
-          # 上次已发布的版本，从最新 release tag `dsh-<version>-<run_id>` 解析。
+          # 上次 npm 构建发布的版本，从最新的非 pre-release tag
+          # `dsh-<version>-<run_id>` 解析；源码 pre-release 不应干扰 npm 同步。
           last=""
-          if gh release list --limit 1 --json tagName --jq '.[0].tagName' >/tmp/last_release.txt 2>/tmp/last_release.err; then
+          if gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName' >/tmp/last_release.txt 2>/tmp/last_release.err; then
             tag="$(cat /tmp/last_release.txt)"
             last="${tag#dsh-}"
             last="${last%-*}"

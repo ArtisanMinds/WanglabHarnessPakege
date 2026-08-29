@@ -62,8 +62,10 @@ The web UI opens at `http://127.0.0.1:3080`. On first use, configure a model pro
 ```text
 .
 ├── .github/workflows/
-│   ├── release.yml                 # cross-platform build + release (manual or called by sync)
-│   └── sync-release.yml            # scheduled upstream check that auto-triggers builds
+│   ├── release.yml                 # npm-based cross-platform build + release
+│   ├── release-from-source.yml     # source build + pre-release for GitHub-only versions
+│   ├── sync-release.yml            # scheduled npm check that auto-triggers builds
+│   └── sync-source-release.yml     # scheduled GitHub Release check for source builds
 ├── scripts/
 │   └── apply-dsh-web-app-patch.mjs # idempotent patch script (re-applies the LAN switch on version bumps)
 ├── patches/                        # pnpm patches (patchedDependencies, version-pinned & reproducible)
@@ -123,28 +125,36 @@ Then register the new entry under `patchedDependencies` in `pnpm-workspace.yaml`
 
 ## Auto-sync Upstream Releases
 
-The built-in `sync-release.yml` workflow:
+The repository has two complementary scheduled workflows:
 
-- **Trigger**: checks every 6 hours; can also be triggered manually from the Actions page (with an optional `version`, or `force=true` for a forced rebuild).
-- **Sync signal**: upstream `deepseek-ai/deepseek-harness` does not publish GitHub Releases, so the npm `@deepseek-ai/dsh` package is the source of truth; the workflow resolves the **semver-highest published version** via `scripts/resolve-latest-dsh-version.mjs` — covering all dist-tags (`latest`, `next`, …), not just `latest`, since upstream may tag a new rc as `next` while `latest` still points at an older one. When a new version is found, `release.yml` is invoked via `workflow_call` — no manual button, no PAT required.
-- **Patch tolerance**: on version bumps, stale `patchedDependencies` entries are ignored (`allowUnusedPatches: true`), and `scripts/apply-dsh-web-app-patch.mjs` idempotently re-applies the LAN switch to the shipped `dsh-web-app` — as long as upstream keeps the `0.0.0.0` guard it adapts automatically; if upstream changes the relevant code, the script fails loudly with a message to update.
-- **Release-age gate**: pnpm 11 rejects "too new" dependencies by default; `minimumReleaseAge: 0` in `pnpm-workspace.yaml` disables that so a fresh upstream publish can be synced immediately. `dangerouslyAllowAllBuilds: true` lets unknown native dependencies in new versions run their build scripts (same behavior as n8n-pkg's `allow-scripts=true` and npm's default); to tighten supply-chain security, switch back to an explicit `allowBuilds` allowlist.
-- **Real-time `main` sync**: after the release completes, the `update-main` job bumps this repo's own `version` and the pinned `@deepseek-ai/dsh` dependency to the synced version, refreshes `pnpm-lock.yaml`, and commits + pushes those changes straight back to `main` — so the repository's `main` branch always reflects the latest shipped version.
+- **npm path — `sync-release.yml`**: checks every 6 hours and can also be triggered manually. It resolves the **semver-highest published version** through `scripts/resolve-latest-dsh-version.mjs`, covering all npm dist-tags (`latest`, `next`, …), then calls `release.yml`. After a successful npm release it updates `main` and the lockfile.
+- **GitHub-only path — `sync-source-release.yml`**: checks every 6 hours whether the semver-highest upstream GitHub Release is newer than npm `@deepseek-ai/dsh`. If npm has not published that version yet, it calls `release-from-source.yml`, which clones the exact `dsh-v<version>` tag, runs `pnpm install` and `pnpm run build`, deploys the built workspace closure, and publishes four platform archives as a GitHub **pre-release**. These source pre-releases do not update `main`, because the version is not installable from npm yet.
+- **Idempotency**: source releases use `dsh-src-<version>-<run_id>` tags. The source watcher skips a version already released this way, while the npm watcher ignores pre-releases so the two paths do not trigger each other repeatedly.
+- **Patch tolerance**: `scripts/apply-dsh-web-app-patch.mjs` idempotently re-applies the LAN switch to the shipped `dsh-web-app`; if upstream changes the relevant guard, it fails loudly with a message to update the script.
+
+For a manual source build, trigger **Build and Pre-release DeepSeek Harness from Source** and provide the upstream release version, without the `dsh-v` prefix (for example `0.1.2-alpha.1`).
 
 Workflow reference:
 
 ```mermaid
 flowchart LR
     N[npm @deepseek-ai/dsh highest published version] --> S[sync-release.yml every 6h]
-    S -->|new version found| R[release.yml workflow_call]
+    S -->|new npm version| R[release.yml workflow_call]
+    GHR[Upstream GitHub Release] --> SS[sync-source-release.yml every 6h]
+    SS -->|new version not on npm| SR[release-from-source.yml workflow_call]
     R --> W[Windows build]
+    SR --> W
     R --> M[macOS arm64 build]
+    SR --> M
     R --> I[macOS x64 build]
+    SR --> I
     R --> L[Linux build]
+    SR --> L
     W --> G[GitHub Release]
     M --> G
     I --> G
     L --> G
+    SR --> PR[GitHub pre-release]
 ```
 
 ## Security Notes
