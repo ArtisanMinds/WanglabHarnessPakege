@@ -101,6 +101,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p node_modules/.bin patches
+          # pnpm may create .bin entries as links to the package target;
+          # remove them before writing standalone shims, otherwise writing the
+          # shim would overwrite @deepseek-ai/dsh/lib/bin.js itself.
+          rm -f node_modules/.bin/dsh node_modules/.bin/dsh.cmd node_modules/.bin/dsh.ps1
           cp ../../patches/* patches/ 2>/dev/null || true
           cat > package.json <<EOF
           {
