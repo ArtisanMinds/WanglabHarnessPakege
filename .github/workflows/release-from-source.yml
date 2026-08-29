@@ -78,10 +78,20 @@ jobs:
         working-directory: upstream
         run: pnpm run build
 
-      - name: Deploy built CLI dependency closure
+      - name: Verify upstream runtime closure
         shell: bash
         working-directory: upstream
-        run: pnpm deploy --filter @deepseek-ai/dsh --prod build_dir --legacy
+        run: pnpm run verify-runtime-closure
+
+      - name: Deploy complete upstream runtime closure
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          # The CLI alone is not a closed runtime: dsh-app-boot has required
+          # workspace peers such as cordis-plugin-group. The upstream
+          # python/sdk-runtime manifest is the maintained complete closure.
+          pnpm deploy --filter dsh-python-runtime-closure --prod build_dir --legacy
 
       - name: Arrange standalone package and command shim
         shell: bash
@@ -90,13 +100,6 @@ jobs:
           DSH_VERSION: ${{ inputs.dsh_version || github.event.inputs.dsh_version }}
         run: |
           set -euo pipefail
-          # pnpm deploy puts the selected package at the deploy root. Move it
-          # under node_modules so the result has the same shape as npm builds.
-          mkdir -p node_modules/@deepseek-ai/dsh
-          if [ -d lib ]; then mv lib node_modules/@deepseek-ai/dsh/lib; fi
-          if [ -f package.json ]; then mv package.json node_modules/@deepseek-ai/dsh/package.json; fi
-          if [ -f cordis.patch.yml ]; then mv cordis.patch.yml node_modules/@deepseek-ai/dsh/cordis.patch.yml; fi
-
           mkdir -p node_modules/.bin patches
           cp ../../patches/* patches/ 2>/dev/null || true
           cat > package.json <<EOF
@@ -136,7 +139,7 @@ jobs:
         working-directory: upstream/build_dir
         run: node ../../scripts/apply-dsh-web-app-patch.mjs
 
-      - name: Verify patch and source-built CLI
+      - name: Verify runtime closure and source-built CLI
         shell: bash
         working-directory: upstream/build_dir
         run: |
@@ -144,6 +147,13 @@ jobs:
           grep -q 'DSH_PKG_ALLOW_LAN' node_modules/@deepseek-ai/dsh-web-app/lib/startup.js
           test -f node_modules/@deepseek-ai/dsh/lib/bin.js
           test -f node_modules/.bin/dsh
+          # Required peers are not necessarily pulled by a CLI-only deploy.
+          # Keep this exact smoke import to catch the failure seen in desktop.
+          test -f node_modules/@deepseek-ai/cordis-plugin-group/package.json
+          node --input-type=module -e "import('@deepseek-ai/dsh-app-boot').then(() => console.log('runtime closure OK'))"
+          # Exercise the actual shipped launcher, not only a dependency import.
+          node node_modules/@deepseek-ai/dsh/lib/bin.js web --help >/tmp/dsh-web-help.txt
+          grep -q 'Serve the DeepSeek Harness browser UI' /tmp/dsh-web-help.txt
 
       - name: Cleanup unnecessary files
         shell: bash
