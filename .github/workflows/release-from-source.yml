@@ -73,13 +73,36 @@ jobs:
         working-directory: upstream
         run: pnpm install
 
-      - name: Install upstream dependencies
+      - name: Include required runtime-closure peers and regenerate lockfile
         shell: bash
         working-directory: upstream
         run: |
-          # The runtime-closure manifest is amended above with the workspace
-          # peers required by the standalone deploy, so the upstream lockfile
-          # is intentionally regenerated before building and deploying.
+          set -euo pipefail
+          # The `dsh-python-runtime-closure` deploy root (`python/sdk-runtime`)
+          # lists only direct deps. A profile plugin that needs a sibling package
+          # solely through peerDependencies (e.g. `dsh-session-title-first-prompt-llm`
+          # -> `dsh-session-title-llm`) is NOT pulled into the hoisted deploy, so
+          # the shipped closure crashes at boot with ERR_MODULE_NOT_FOUND
+          # (`Cannot find package '@deepseek-ai/dsh-session-title-llm'`). Pin the
+          # required workspace peers as direct deps of the closure manifest; the
+          # regenerate install below bakes them into the lockfile before deploy.
+          node --input-type=module - <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs'
+          const manifest = JSON.parse(readFileSync('python/sdk-runtime/package.json', 'utf8'))
+          manifest.dependencies ||= {}
+          for (const name of [
+            '@deepseek-ai/dsh-session-title-llm',
+            '@deepseek-ai/dsh-session-title-first-prompt-llm',
+            '@deepseek-ai/dsh-session-title-all-prompts-llm',
+          ]) {
+            manifest.dependencies[name] ||= 'workspace:^'
+          }
+          const sorted = {}
+          for (const key of Object.keys(manifest.dependencies).sort()) sorted[key] = manifest.dependencies[key]
+          manifest.dependencies = sorted
+          writeFileSync('python/sdk-runtime/package.json', JSON.stringify(manifest, null, 2) + '\n')
+          JS
+          # Regenerate the upstream lockfile so the peers are installed as prod deps.
           pnpm install --no-frozen-lockfile
 
       - name: Build upstream
@@ -161,6 +184,11 @@ jobs:
           # Keep this exact smoke import to catch the failure seen in desktop.
           test -f node_modules/@deepseek-ai/cordis-plugin-group/package.json
           node --input-type=module -e "import('@deepseek-ai/dsh-app-boot').then(() => console.log('runtime closure OK'))"
+          # Peer-only deps embedded in a loaded profile plugin are the class of
+          # failure the desktop hit (ERR_MODULE_NOT_FOUND on
+          # @deepseek-ai/dsh-session-title-llm). Importing the profile plugin
+          # exercises its peer resolution; fail loudly if the closure is incomplete.
+          node --input-type=module -e "import('@deepseek-ai/dsh-session-title-first-prompt-llm').then(() => console.log('session-title closure OK'))"
           # Exercise the actual shipped launcher, not only a dependency import.
           node node_modules/@deepseek-ai/dsh/lib/bin.js web --help >/tmp/dsh-web-help.txt
           grep -q 'Serve the DeepSeek Harness browser UI' /tmp/dsh-web-help.txt
