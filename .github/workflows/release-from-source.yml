@@ -53,7 +53,7 @@ jobs:
           set -euo pipefail
           git clone --depth 1 --branch "dsh-v${DSH_VERSION}" https://github.com/deepseek-ai/deepseek-harness.git upstream
 
-      - name: Configure source build and runtime closure
+      - name: Configure shippable upstream node_modules layout
         shell: bash
         working-directory: upstream
         run: |
@@ -67,19 +67,11 @@ jobs:
           publicHoistPattern:
             - '*'
           EOF
-          # dsh-app-boot and the session-title plugins load these workspace
-          # peers at runtime; add them before install/build/deploy so the same
-          # dependency graph is used throughout the job.
-          node --input-type=module <<'EOF'
-          import {readFileSync, writeFileSync} from 'node:fs'
-          const path = 'python/sdk-runtime/package.json'
-          const manifest = JSON.parse(readFileSync(path, 'utf8'))
-          for (const name of [
-            '@deepseek-ai/dsh-session-title-first-prompt-llm',
-            '@deepseek-ai/dsh-session-title-llm',
-          ]) manifest.dependencies[name] = 'workspace:^'
-          writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`)
-          EOF
+
+      - name: Install upstream dependencies
+        shell: bash
+        working-directory: upstream
+        run: pnpm install
 
       - name: Install upstream dependencies
         shell: bash
