@@ -84,7 +84,11 @@ jobs:
       - name: Install upstream dependencies
         shell: bash
         working-directory: upstream
-        run: pnpm install
+        run: |
+          # The runtime-closure manifest is amended above with the workspace
+          # peers required by the standalone deploy, so the upstream lockfile
+          # is intentionally regenerated before building and deploying.
+          pnpm install --no-frozen-lockfile
 
       - name: Build upstream
         shell: bash
