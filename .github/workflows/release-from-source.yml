@@ -110,6 +110,13 @@ jobs:
       - name: Build upstream
         shell: bash
         working-directory: upstream
+        env:
+          # Official client build profile: without it the client bundles embed no
+          # DSH_CLIENT_BUILD_PROFILE / DSH_CLIENT_TITLE, so dsh-client-ui-brand-official
+          # bails (`{}.DSH_CLIENT_BUILD_PROFILE !== "official"`) and the sidebar shows
+          # the "DSH Local Build" fallback badge instead of the DeepSeek Harness brand.
+          # commit/version are auto-filled from the git checkout by scripts/build.ts.
+          DSH_BUILD_CLIENT_PROFILE: official
         run: pnpm run build
 
       - name: Verify upstream runtime closure
