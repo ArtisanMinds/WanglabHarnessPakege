@@ -94,6 +94,8 @@ jobs:
             '@deepseek-ai/dsh-session-title-llm',
             '@deepseek-ai/dsh-session-title-first-prompt-llm',
             '@deepseek-ai/dsh-session-title-all-prompts-llm',
+            '@deepseek-ai/dsh-util-workspace-path',
+            '@deepseek-ai/cordis',
           ]) {
             manifest.dependencies[name] ||= 'workspace:^'
           }
@@ -182,6 +184,7 @@ jobs:
           test -f node_modules/.bin/dsh
           # Required peers are not necessarily pulled by a CLI-only deploy.
           # Keep this exact smoke import to catch the failure seen in desktop.
+          test -f node_modules/@deepseek-ai/cordis/package.json
           test -f node_modules/@deepseek-ai/cordis-plugin-group/package.json
           node --input-type=module -e "import('@deepseek-ai/dsh-app-boot').then(() => console.log('runtime closure OK'))"
           # Peer-only deps embedded in a loaded profile plugin are the class of
