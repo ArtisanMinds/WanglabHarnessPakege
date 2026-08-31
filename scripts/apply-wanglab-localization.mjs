@@ -30,22 +30,22 @@ replace(
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'title: "内测声明",',
-  'title: "Wanglab Harness 内测说明",',
+  'title: "Wanglab Harness 内测版本 / Internal Testing",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'body: "DeepSeek Harness 目前的 0.1 版本仍处在面向 Harness 开发者进行测试的阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者的反馈建议。预计 DeepSeek Harness 的核心插件以及基础 API 都会在接下来的一段时间内快速迭代、持续演化。\\n\\n我们期待与全球开发者一起，在开源、开放、可复用、可组合的基础设施之上，共同探索智能上限。欢迎全球 Harness 开发者加入 DSH 插件生态。",',
-  'body: "Wanglab Harness 0.1 目前处于内测阶段，面向内部团队与受邀开发者开放。我们正在持续完善 WanglabAI 的模型接入、插件生态和基础能力，欢迎通过官网 https://seuwanglab.com/ 反馈使用体验。\\n\\nWanglabAI 致力于提供开放、可复用、可组合的智能工具。Create Future Here。",',
+  'body: "Wanglab Harness 0.1 当前为内测版本，面向内部团队与受邀开发者开放。我们正在持续完善 WanglabAI 模型接入、插件生态与基础能力。官网：https://seuwanglab.com/\\n\\nWanglab Harness 0.1 is an internal testing release for our team and invited developers. We are continuing to improve WanglabAI model access, plugins, and core capabilities. Website: https://seuwanglab.com/\\n\\nCreate Future Here",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'title: "Internal Testing Notice",',
-  'title: "Wanglab Harness Internal Testing",',
+  'title: "Wanglab Harness 内测版本 / Internal Testing",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'body: "DeepSeek Harness 0.1 remains in testing for Harness developers. Many areas need further improvement, and we welcome feedback from the developer community. DeepSeek Harness\'s core plugins and foundational APIs will continue to evolve rapidly over the coming months.\\n\\nWe look forward to exploring the limits of intelligence with developers around the world, building on open-source, open, reusable, and composable infrastructure. We welcome Harness developers everywhere to join the DSH plugin ecosystem.",',
-  'body: "Wanglab Harness 0.1 is currently in internal testing for our team and invited developers. We are continuing to improve WanglabAI model access, the plugin ecosystem, and foundational capabilities. Feedback is welcome at https://seuwanglab.com/.\\n\\nWanglabAI provides open, reusable, and composable tools for intelligent work. Create Future Here.",',
+  'body: "Wanglab Harness 0.1 当前为内测版本，面向内部团队与受邀开发者开放。我们正在持续完善 WanglabAI 模型接入、插件生态与基础能力。官网：https://seuwanglab.com/\\n\\nWanglab Harness 0.1 is an internal testing release for our team and invited developers. We are continuing to improve WanglabAI model access, plugins, and core capabilities. Website: https://seuwanglab.com/\\n\\nCreate Future Here",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
@@ -99,6 +99,40 @@ replace(
   'const productTitle = "Wanglab Harness";',
 )
 replace(
+  'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+  '"hero.headline": "探索未至之境",',
+  '"hero.headline": "Create Future Here",',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+  '"hero.headline": "Into the Unknown",',
+  '"hero.headline": "Create Future Here",',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+  '"hero.preview": "预览版",',
+  '"hero.preview": "内测版本 / Internal Test",',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+  '"hero.preview": "Preview",',
+  '"hero.preview": "内测版本 / Internal Test",',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+  `fallback: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FishLogo, {
+									size: 34,
+									className: HeroShell_module_css_default.fish
+								})`,
+  `fallback: (0, react_jsx_runtime.jsx)("img", {
+									src: "/favicon.svg",
+									alt: "WanglabAI",
+									width: 34,
+									height: 34,
+									className: HeroShell_module_css_default.fish
+								})`,
+)
+replace(
   'node_modules/@deepseek-ai/dsh-llm-deepseek/lib/index.js',
   'name: "DeepSeek"',
   'name: "WanglabAI - Deepseek"',
@@ -107,6 +141,26 @@ replace(
   'node_modules/@deepseek-ai/dsh-llm-deepseek/lib/index.js',
   'displayName: "DeepSeek",',
   'displayName: "WanglabAI - Deepseek",',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-web-search-deepseek/lib/index.js',
+  'const DEEPSEEK_DEFAULT_BASE_URL = "https://api.deepseek.com/anthropic/v1";',
+  'const DEEPSEEK_DEFAULT_BASE_URL = "https://10.201.2.89:31417/anthropic/v1";',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-web-search-deepseek/lib/index.js',
+  'const USER_AGENT = "deepseek-harness/0.0.1";',
+  'const USER_AGENT = "wanglab-harness/0.1.0";',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-web-search-deepseek/lib/index.js',
+  'const DEFAULT_API_KEY_ENV = "DEEPSEEK_API_KEY";',
+  'const DEFAULT_API_KEY_ENV = "WANGLABAI_DEEPSEEK_API_KEY";',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-web-search-deepseek/lib/index.js',
+  '?? "https://api.deepseek.com/anthropic/v1",',
+  '?? "https://10.201.2.89:31417/anthropic/v1",',
 )
 
 copyFileSync(
