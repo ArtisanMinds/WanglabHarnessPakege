@@ -1,0 +1,84 @@
+name: Build Wanglab Core Windows Release
+
+on:
+  push:
+    branches:
+      - wanglab/0.1.0-localization
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install DSH 0.1.1-rc.2
+        shell: bash
+        run: |
+          pnpm add "@deepseek-ai/dsh@0.1.1-rc.2" --save-exact
+          pnpm install
+
+      - name: Deploy package
+        shell: bash
+        run: |
+          pnpm deploy --filter . --prod build_dir --legacy
+          cd build_dir
+          npm install --omit=dev
+
+      - name: Apply package patches
+        shell: bash
+        working-directory: build_dir
+        run: |
+          node ../scripts/apply-dsh-web-app-patch.mjs
+          node ../scripts/apply-wanglab-localization.mjs
+
+      - name: Remove development files
+        shell: bash
+        working-directory: build_dir
+        run: |
+          find node_modules -type f \( -name "*.map" -o -name "*.ts" -o -name "*.mts" \) -delete || true
+          find node_modules -type d \( -name "test" -o -name "tests" -o -name "benchmark" -o -name "example" -o -name "demo" \) -exec rm -rf {} + || true
+
+      - name: Create Windows archive
+        shell: bash
+        working-directory: build_dir
+        run: |
+          7z a ../deepseek-harness-pkg-windows.zip node_modules package.json package-lock.json patches
+
+      - name: Upload Windows archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-harness-pkg-windows.zip
+          path: deepseek-harness-pkg-windows.zip
+
+  publish:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows archive
+        uses: actions/download-artifact@v4
+        with:
+          name: deepseek-harness-pkg-windows.zip
+          path: release-assets
+
+      - name: Publish Wanglab Core release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: wanglab-core-dsh-0.1.1-rc.2
+        run: |
+          gh release delete "$RELEASE_TAG" --cleanup-tag --yes || true
+          gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.1-rc.2"
+          gh release upload "$RELEASE_TAG" release-assets/deepseek-harness-pkg-windows.zip --clobber

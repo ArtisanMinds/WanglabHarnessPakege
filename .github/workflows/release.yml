@@ -1,16 +1,16 @@
-name: Build and Release DeepSeek Harness
+name: Build and Release Wanglab Harness Core
 
 on:
   workflow_dispatch:
     inputs:
       dsh_version:
-        description: '要打包的 dsh 版本 (例如: 0.1.0-rc.6 或 latest)'
+        description: '要打包的 dsh 版本'
         required: true
-        default: '0.1.0-rc.6'
+        default: '0.1.1-rc.2'
   workflow_call:
     inputs:
       dsh_version:
-        description: '要打包的 dsh 版本 (例如: 0.1.0-rc.6 或 latest)'
+        description: '要打包的 dsh 版本'
         required: true
         type: string
 
@@ -64,6 +64,12 @@ jobs:
         working-directory: build_dir
         run: |
           node ../scripts/apply-dsh-web-app-patch.mjs
+
+      - name: Apply Wanglab localization
+        shell: bash
+        working-directory: build_dir
+        run: |
+          node ../scripts/apply-wanglab-localization.mjs
 
       - name: Verify patch applied
         shell: bash
