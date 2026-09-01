@@ -25,27 +25,27 @@ replace(
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'const WELCOME_NOTICE_VERSION = "2026-08-13.1";',
-  'const WELCOME_NOTICE_VERSION = "2026-08-31.1";',
+  'const WELCOME_NOTICE_VERSION = "2026-09-01.1";',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'title: "内测声明",',
-  'title: "Wanglab Harness 内测版本 / Internal Testing",',
+  'title: "Wanglab Harness 内测",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'body: "DeepSeek Harness 目前的 0.1 版本仍处在面向 Harness 开发者进行测试的阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者的反馈建议。预计 DeepSeek Harness 的核心插件以及基础 API 都会在接下来的一段时间内快速迭代、持续演化。\\n\\n我们期待与全球开发者一起，在开源、开放、可复用、可组合的基础设施之上，共同探索智能上限。欢迎全球 Harness 开发者加入 DSH 插件生态。",',
-  'body: "Wanglab Harness 0.1 当前为内测版本，面向内部团队与受邀开发者开放。我们正在持续完善 WanglabAI 模型接入、插件生态与基础能力。官网：https://seuwanglab.com/\\n\\nWanglab Harness 0.1 is an internal testing release for our team and invited developers. We are continuing to improve WanglabAI model access, plugins, and core capabilities. Website: https://seuwanglab.com/\\n\\nCreate Future Here",',
+  'body: "Wanglab is affiliated with School of Mechanical Engineering, Southeast University , Nanjing, China. Founded by Prof. Qianqian Wang, the lab is dedicated to the interdisciplinary robotics research at small scales, ranging from fundamental science and physics to technologies and solutions for a series of applications. Our team aims to investigate novel robotics solutions with a highly interest in both academic research and down-to-earth solution development, and we are always welcome worldwide collaborators to join our collaboration network.\\n\\nWe are creating the future here！",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'title: "Internal Testing Notice",',
-  'title: "Wanglab Harness 内测版本 / Internal Testing",',
+  'title: "Wanglab Harness Internal",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'body: "DeepSeek Harness 0.1 remains in testing for Harness developers. Many areas need further improvement, and we welcome feedback from the developer community. DeepSeek Harness\'s core plugins and foundational APIs will continue to evolve rapidly over the coming months.\\n\\nWe look forward to exploring the limits of intelligence with developers around the world, building on open-source, open, reusable, and composable infrastructure. We welcome Harness developers everywhere to join the DSH plugin ecosystem.",',
-  'body: "Wanglab Harness 0.1 当前为内测版本，面向内部团队与受邀开发者开放。我们正在持续完善 WanglabAI 模型接入、插件生态与基础能力。官网：https://seuwanglab.com/\\n\\nWanglab Harness 0.1 is an internal testing release for our team and invited developers. We are continuing to improve WanglabAI model access, plugins, and core capabilities. Website: https://seuwanglab.com/\\n\\nCreate Future Here",',
+  'body: "Wanglab is affiliated with School of Mechanical Engineering, Southeast University , Nanjing, China. Founded by Prof. Qianqian Wang, the lab is dedicated to the interdisciplinary robotics research at small scales, ranging from fundamental science and physics to technologies and solutions for a series of applications. Our team aims to investigate novel robotics solutions with a highly interest in both academic research and down-to-earth solution development, and we are always welcome worldwide collaborators to join our collaboration network.\\n\\nWe are creating the future here！",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
@@ -111,12 +111,12 @@ replace(
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
   '"hero.preview": "预览版",',
-  '"hero.preview": "内测版本 / Internal Test",',
+  '"hero.preview": "内测",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
   '"hero.preview": "Preview",',
-  '"hero.preview": "内测版本 / Internal Test",',
+  '"hero.preview": "Internal",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
