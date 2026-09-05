@@ -13,7 +13,11 @@ replace('function resolveRouteModels(request) {', 'import { isWanglabEndpoint, m
 replace('const entries = configured.length > 0 ? configured :', 'const entries = (isWanglabEndpoint(request.baseURL) || configured.length > 0) ? configured :');
 replace('if (entries.length === 0) invalid(provider,', 'if (entries.length === 0 && !isWanglabEndpoint(request.baseURL)) invalid(provider,');
 replace('const base = defaults.get(entry.id);', 'const base = isWanglabEndpoint(request.baseURL) ? modelDefaults(defaults, provider, entry.id) : defaults.get(entry.id);');
-replace('if (request.provider !== void 0) {\n\t\tconst installed = catalogModels(request.provider);', 'if (request.provider !== void 0 && !request.baseURL) {\n\t\tconst installed = catalogModels(request.provider);');
+source = source.replace('if (request.provider !== void 0 && !request.baseURL) {', 'if (request.provider !== void 0 && request.baseURL === void 0) {');
+replace('if (request.provider !== void 0) {\n\t\tconst installed = catalogModels(request.provider);', 'if (request.provider !== void 0 && request.baseURL === void 0) {\n\t\tconst installed = catalogModels(request.provider);');
+replace('async function discoverModels(request, storedProfile) {', 'async function discoverModels(request, storedProfile) {\n\tconst saved = storedProfile?.();\n\trequest = { ...request, baseURL: request.baseURL ?? saved?.baseURL, api: request.api ?? saved?.api };');
+replace('const stored = storedProfile?.();', 'const stored = saved;');
+replace('headers: profile.headers,\n\t\t\tresolveApiKey:', 'baseURL: profile.baseURL,\n\t\t\tapi: profile.api,\n\t\t\theaders: profile.headers,\n\t\t\tresolveApiKey:');
 replace('const LISTABLE_PROTOCOLS = new Set(["openai-completions", "openai-responses"]);', 'const LISTABLE_PROTOCOLS = new Set(["openai-completions", "openai-responses", "anthropic-messages"]);');
 replace('const url = listingUrl(request.baseURL);', 'const base = request.baseURL.replace(/\\/+$/, "");\n\tconst url = listingUrl(api === "anthropic-messages" && !base.endsWith("/v1") ? `${base}/v1` : base);');
 replace('if (apiKey !== void 0) headers.set("authorization", `Bearer ${apiKey}`);', 'if (apiKey !== void 0) headers.set("authorization", `Bearer ${apiKey}`);\n\t\tif (api === "anthropic-messages") {\n\t\t\theaders.set("anthropic-version", "2023-06-01");\n\t\t\tif (apiKey !== void 0) headers.set("x-api-key", apiKey);\n\t\t}');

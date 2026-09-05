@@ -48,6 +48,24 @@ test('failed endpoint authentication never falls back to the installed model cat
   await assert.rejects(discoverModels({ provider: 'openai', api: 'openai-responses', baseURL: base, apiKey: 'sk-wrong' }), /401/);
 });
 
+test('a provider-only request discovers from its saved connection instead of historical builtins', async () => {
+  let reads = 0;
+  const models = await discoverModels({ provider: 'anthropic' }, () => {
+    reads++;
+    return { baseURL: base, api: 'anthropic-messages', resolveApiKey: () => 'sk-test' };
+  });
+  assert.equal(reads, 1);
+  assert.deepEqual(models.map(model => model.id), ['remote-only-model']);
+  assert.equal(requests.at(-1).path, '/v1/models');
+  assert.equal(requests.at(-1).headers['x-api-key'], 'sk-test');
+});
+
+test('a saved connection error and an explicitly cleared URL never produce builtin models', async () => {
+  const saved = () => ({ baseURL: `${base}/v1`, api: 'openai-responses', resolveApiKey: () => 'sk-wrong' });
+  await assert.rejects(discoverModels({ provider: 'openai' }, saved), /401/);
+  await assert.rejects(discoverModels({ provider: 'openai', baseURL: '' }, saved), /set a baseURL/);
+});
+
 test('an empty Wanglab model list stays empty during an offline first launch', () => {
   const resolved = resolveRouteModels({ provider: 'openai', api: 'openai-responses', baseURL: 'https://10.201.2.89:31415/v1', models: [], defaultContextWindow: 262144, defaultMaxTokens: 32768, defaultInput: ['text'] });
   assert.deepEqual(resolved.models, []);
