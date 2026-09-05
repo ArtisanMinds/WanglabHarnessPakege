@@ -3,7 +3,7 @@ name: Build Wanglab Core Windows Release
 on:
   push:
     branches:
-      - wanglab/0.1.0-localization
+      - wanglab/0.2.0-localization
   workflow_dispatch:
 
 permissions:
@@ -24,11 +24,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Install DSH 0.1.1-rc.2
+      - name: Install pinned DSH dependencies
         shell: bash
         run: |
-          pnpm add "@deepseek-ai/dsh@0.1.1-rc.2" --save-exact
-          pnpm install
+          pnpm install --frozen-lockfile
 
       - name: Deploy package
         shell: bash
@@ -43,6 +42,9 @@ jobs:
         run: |
           node ../scripts/apply-dsh-web-app-patch.mjs
           node ../scripts/apply-wanglab-localization.mjs
+          node ../scripts/apply-wanglab-model-discovery.mjs
+          node --test ../scripts/model-discovery.test.mjs
+          node ../scripts/smoke-core.mjs
 
       - name: Remove development files
         shell: bash
@@ -77,8 +79,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: wanglab-core-dsh-0.1.1-rc.2
+          RELEASE_TAG: wanglab-core-dsh-0.1.2-rc.1
         run: |
-          gh release delete "$RELEASE_TAG" --cleanup-tag --yes || true
-          gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.1-rc.2"
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.2-rc.1"
           gh release upload "$RELEASE_TAG" release-assets/deepseek-harness-pkg-windows.zip --clobber
