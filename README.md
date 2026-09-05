@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/hairyf/deepseek-harness-pkg">
+  <a href="https://github.com/dsh-tauri-desk/deepseek-harness-pkg">
     <img src="public/favicon.svg" width="112" alt="DeepSeek Harness Pkg" />
   </a>
 </p>
@@ -27,7 +27,7 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) is an open-source agent harness with a CLI, a web UI, and a plugin architecture. Setting it up normally means installing Node.js and pnpm and building from source.
 
-This repository (inspired by [n8n-pkg](https://github.com/hairyf/n8n-pkg)) removes that friction: it pins an upstream npm release, patches the dependency closure, and publishes ready-to-run `node_modules` bundles for Windows, macOS (Apple Silicon + Intel), and Linux. Consumers just download a zip from the [Releases](https://github.com/hairyf/deepseek-harness-pkg/releases) page, unzip, and run `dsh web`.
+This repository (inspired by [n8n-pkg](https://github.com/hairyf/n8n-pkg)) removes that friction: it pins an upstream npm release, patches the dependency closure, and publishes ready-to-run `node_modules` bundles for Windows, macOS (Apple Silicon + Intel), and Linux. Consumers just download a zip from the [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) page, unzip, and run `dsh web`.
 
 ## Features
 
@@ -41,7 +41,7 @@ This repository (inspired by [n8n-pkg](https://github.com/hairyf/n8n-pkg)) remov
 
 ## Quick Start
 
-1. Download the artifact for your platform from the [Releases](https://github.com/hairyf/deepseek-harness-pkg/releases) page.
+1. Download the artifact for your platform from the [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) page.
 2. Unzip the archive.
 3. Run:
 
@@ -87,7 +87,7 @@ pnpm build              # produce the prod deployment directory build_dir/
 
 Open the repository's Actions page and manually trigger **Build and Release DeepSeek Harness**:
 
-- `dsh_version`: the dsh version to package, defaults to `0.1.0-rc.6`.
+- `dsh_version`: the dsh version to package, defaults to the version declared in `package.json` (`0.1.2-rc.1`).
 
 The build creates a GitHub Release named `dsh-<version>-<run_id>` with four platform zips:
 
