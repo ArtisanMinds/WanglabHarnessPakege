@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/hairyf/deepseek-harness-pkg">
+  <a href="https://github.com/dsh-tauri-desk/deepseek-harness-pkg">
     <img src="public/favicon.svg" width="112" alt="DeepSeek Harness Pkg" />
   </a>
 </p>
@@ -27,7 +27,7 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）是开源的 Agent 工作台，包含 CLI、Web UI 与插件架构。常规安装需要自己装 Node.js、pnpm 并从头构建。
 
-本仓库（参考 [n8n-pkg](https://github.com/hairyf/n8n-pkg)）省掉这些麻烦：固定一个上游 npm 版本、对依赖闭包打补丁，并通过 GitHub Actions 产出 Windows、macOS（Apple Silicon + Intel）、Linux 三个平台可直接运行的 `node_modules` 压缩包。使用者只需从 [Releases](https://github.com/hairyf/deepseek-harness-pkg/releases) 下载对应平台的 zip，解压后运行 `dsh web` 即可。
+本仓库（参考 [n8n-pkg](https://github.com/hairyf/n8n-pkg)）省掉这些麻烦：固定一个上游 npm 版本、对依赖闭包打补丁，并通过 GitHub Actions 产出 Windows、macOS（Apple Silicon + Intel）、Linux 三个平台可直接运行的 `node_modules` 压缩包。使用者只需从 [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) 下载对应平台的 zip，解压后运行 `dsh web` 即可。
 
 ## 特性
 
@@ -41,7 +41,7 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/hairyf/deepseek-harness-pkg/releases) 页面下载对应平台的产物。
+1. 从 [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) 页面下载对应平台的产物。
 2. 解压。
 3. 运行：
 
@@ -87,7 +87,7 @@ pnpm build              # 产出 prod 部署目录 build_dir/
 
 进入仓库的 Actions 页面，手动触发 **Build and Release DeepSeek Harness**：
 
-- `dsh_version`：要打包的 dsh 版本，默认 `0.1.0-rc.6`。
+- `dsh_version`：要打包的 dsh 版本，默认使用 `package.json` 中声明的版本（`0.1.2-rc.1`）。
 
 构建完成后会自动创建形如 `dsh-<版本>-<run_id>` 的 GitHub Release，附四个平台的 zip：
 
