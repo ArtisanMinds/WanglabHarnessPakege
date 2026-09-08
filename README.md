@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/hairyf/deepseek-harness-pkg">
+  <a href="https://github.com/dsh-tauri-desk/deepseek-harness-pkg">
     <img src="public/favicon.svg" width="112" alt="DeepSeek Harness Pkg" />
   </a>
 </p>
@@ -27,21 +27,21 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) is an open-source agent harness with a CLI, a web UI, and a plugin architecture. Setting it up normally means installing Node.js and pnpm and building from source.
 
-This repository (inspired by [n8n-pkg](https://github.com/hairyf/n8n-pkg)) removes that friction: it pins an upstream npm release, patches the dependency closure, and publishes ready-to-run `node_modules` bundles for Windows, macOS (Apple Silicon + Intel), and Linux. Consumers just download a zip from the [Releases](https://github.com/hairyf/deepseek-harness-pkg/releases) page, unzip, and run `dsh web`.
+This repository (inspired by [n8n-pkg](https://github.com/hairyf/n8n-pkg)) removes that friction: it pins an upstream npm release, patches the dependency closure, and publishes ready-to-run `node_modules` bundles for Windows, macOS (Apple Silicon + Intel), and Linux. Consumers just download a zip from the [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) page, unzip, and run `dsh web`.
 
 ## Features
 
 | | |
 | --- | --- |
-| **Pinned & reproducible** | A pnpm workspace pins a single upstream version (`@deepseek-ai/dsh`), with patches recorded in `patches/` and a committed lockfile. |
-| **Patched dependency closure** | `patchedDependencies` patches packages inside the dependency closure, including a LAN-access switch for `dsh web`. |
+| **Pinned & reproducible** | A pnpm workspace pins a single upstream version (`@deepseek-ai/dsh`), with a committed lockfile. |
+| **Patched dependency closure** | A build-time script applies a LAN-access switch to `dsh web` inside the dependency closure. |
 | **Cross-platform artifacts** | CI builds bundles for Windows, macOS (arm64 + x64), and Linux and publishes them as GitHub Releases. |
 | **Auto-sync with upstream** | A scheduled workflow watches npm for new `dsh` versions and triggers a rebuild automatically. |
 | **Self-contained output** | Each artifact is a plain npm project — unzip, run the `dsh` binary inside `node_modules`, done. |
 
 ## Quick Start
 
-1. Download the artifact for your platform from the [Releases](https://github.com/hairyf/deepseek-harness-pkg/releases) page.
+1. Download the artifact for your platform from the [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) page.
 2. Unzip the archive.
 3. Run:
 
@@ -62,12 +62,13 @@ The web UI opens at `http://127.0.0.1:3080`. On first use, configure a model pro
 ```text
 .
 ├── .github/workflows/
-│   ├── release.yml                 # cross-platform build + release (manual or called by sync)
-│   └── sync-release.yml            # scheduled upstream check that auto-triggers builds
+│   ├── release.yml                 # npm-based cross-platform build + release
+│   ├── release-from-source.yml     # source build + pre-release for GitHub-only versions
+│   ├── sync-release.yml            # scheduled npm check that auto-triggers builds
+│   └── sync-source-release.yml     # scheduled GitHub Release check for source builds
 ├── scripts/
 │   └── apply-dsh-web-app-patch.mjs # idempotent patch script (re-applies the LAN switch on version bumps)
-├── patches/                        # pnpm patches (patchedDependencies, version-pinned & reproducible)
-├── pnpm-workspace.yaml             # nodeLinker / build policy / patchedDependencies (pnpm 11 settings)
+├── pnpm-workspace.yaml             # nodeLinker / build policy (pnpm 11 settings)
 ├── package.json                    # pinned @deepseek-ai/dsh version
 └── pnpm-lock.yaml                  # lockfile
 ```
@@ -77,7 +78,7 @@ The web UI opens at `http://127.0.0.1:3080`. On first use, configure a model pro
 Requirements: Node.js `>=22.19` (recommended 24), pnpm `11.x` (the repo declares `packageManager: pnpm@11.7.0`).
 
 ```sh
-pnpm install            # install dependencies and apply patches
+pnpm install            # install dependencies
 pnpm start              # run dsh web directly (http://127.0.0.1:3080)
 pnpm build              # produce the prod deployment directory build_dir/
 ```
@@ -86,7 +87,7 @@ pnpm build              # produce the prod deployment directory build_dir/
 
 Open the repository's Actions page and manually trigger **Build and Release DeepSeek Harness**:
 
-- `dsh_version`: the dsh version to package, defaults to `0.1.0-rc.6` (must match the version targeted by `patches/`, otherwise the build fails on a patch mismatch).
+- `dsh_version`: the dsh version to package, defaults to the version declared in `package.json` (`0.1.2-rc.1`).
 
 The build creates a GitHub Release named `dsh-<version>-<run_id>` with four platform zips:
 
@@ -101,7 +102,7 @@ The build creates a GitHub Release named `dsh-<version>-<run_id>` with four plat
 
 ### dsh-web-app: LAN access (default off)
 
-Upstream `dsh web` rejects `--host 0.0.0.0` for security reasons (it would expose the remote-code-execution surface to the network). The `patches/dsh-web-app@0.1.0-rc.6.patch` patch turns this into an **explicit environment-variable switch**:
+Upstream `dsh web` rejects `--host 0.0.0.0` for security reasons (it would expose the remote-code-execution surface to the network). A build-time patch script (`scripts/apply-dsh-web-app-patch.mjs`) turns this into an **explicit environment-variable switch**:
 
 ```sh
 # still rejected by default
@@ -113,38 +114,42 @@ DSH_PKG_ALLOW_LAN=1 dsh web --host 0.0.0.0 --trusted-host <LAN-IP>:3080
 
 > ⚠️ Security warning: `--host 0.0.0.0` lets any device on your LAN access your sessions and tool execution. Use it only in trusted networks and pair it with `--trusted-host` to restrict the `/api` trust domain.
 
-### Adding or updating patches
+### How the LAN switch is applied
 
-```sh
-pnpm patch @deepseek-ai/dsh-web-app   # edit, then pnpm patch-commit to produce a .patch
-```
-
-Then register the new entry under `patchedDependencies` in `pnpm-workspace.yaml` (the version must match what the lockfile resolves). When upgrading dsh, `patches/` must be updated accordingly.
+`scripts/apply-dsh-web-app-patch.mjs` is applied idempotently during packaging (see the "Apply dsh-web-app patch" step in `release.yml` / `release-from-source.yml`): it only needs the upstream guard line to exist, and fails loudly with a message to update the script if upstream changes it. There is no pnpm `patchedDependencies` entry anymore — the previous `patches/dsh-web-app@0.1.0-rc.6.patch` was removed when it went stale.
 
 ## Auto-sync Upstream Releases
 
-The built-in `sync-release.yml` workflow:
+The repository has two complementary scheduled workflows:
 
-- **Trigger**: checks every 6 hours; can also be triggered manually from the Actions page (with an optional `version`, or `force=true` for a forced rebuild).
-- **Sync signal**: upstream `deepseek-ai/deepseek-harness` does not publish GitHub Releases, so the npm `@deepseek-ai/dsh` package is the source of truth; the workflow resolves the **semver-highest published version** via `scripts/resolve-latest-dsh-version.mjs` — covering all dist-tags (`latest`, `next`, …), not just `latest`, since upstream may tag a new rc as `next` while `latest` still points at an older one. When a new version is found, `release.yml` is invoked via `workflow_call` — no manual button, no PAT required.
-- **Patch tolerance**: on version bumps, stale `patchedDependencies` entries are ignored (`allowUnusedPatches: true`), and `scripts/apply-dsh-web-app-patch.mjs` idempotently re-applies the LAN switch to the shipped `dsh-web-app` — as long as upstream keeps the `0.0.0.0` guard it adapts automatically; if upstream changes the relevant code, the script fails loudly with a message to update.
-- **Release-age gate**: pnpm 11 rejects "too new" dependencies by default; `minimumReleaseAge: 0` in `pnpm-workspace.yaml` disables that so a fresh upstream publish can be synced immediately. `dangerouslyAllowAllBuilds: true` lets unknown native dependencies in new versions run their build scripts (same behavior as n8n-pkg's `allow-scripts=true` and npm's default); to tighten supply-chain security, switch back to an explicit `allowBuilds` allowlist.
-- **Real-time `main` sync**: after the release completes, the `update-main` job bumps this repo's own `version` and the pinned `@deepseek-ai/dsh` dependency to the synced version, refreshes `pnpm-lock.yaml`, and commits + pushes those changes straight back to `main` — so the repository's `main` branch always reflects the latest shipped version.
+- **npm path — `sync-release.yml`**: checks every 6 hours and can also be triggered manually. It resolves the **semver-highest published version** through `scripts/resolve-latest-dsh-version.mjs`, covering all npm dist-tags (`latest`, `next`, …), then calls `release.yml`. After a successful npm release it updates `main` and the lockfile.
+- **GitHub-only path — `sync-source-release.yml`**: checks every 6 hours whether the semver-highest upstream GitHub Release is newer than npm `@deepseek-ai/dsh`. If npm has not published that version yet, it calls `release-from-source.yml`, which clones the exact `dsh-v<version>` tag, runs `pnpm install` and `pnpm run build`, deploys the built workspace closure, and publishes four platform archives as a GitHub **pre-release**. These source pre-releases do not update `main`, because the version is not installable from npm yet.
+- **Idempotency**: source releases use `dsh-src-<version>-<run_id>` tags. The source watcher skips a version already released this way, while the npm watcher ignores pre-releases so the two paths do not trigger each other repeatedly.
+- **Patch tolerance**: `scripts/apply-dsh-web-app-patch.mjs` idempotently re-applies the LAN switch to the shipped `dsh-web-app`; if upstream changes the relevant guard, it fails loudly with a message to update the script.
+
+For a manual source build, trigger **Build and Pre-release DeepSeek Harness from Source** and provide the upstream release version, without the `dsh-v` prefix (for example `0.1.2-alpha.1`).
 
 Workflow reference:
 
 ```mermaid
 flowchart LR
     N[npm @deepseek-ai/dsh highest published version] --> S[sync-release.yml every 6h]
-    S -->|new version found| R[release.yml workflow_call]
+    S -->|new npm version| R[release.yml workflow_call]
+    GHR[Upstream GitHub Release] --> SS[sync-source-release.yml every 6h]
+    SS -->|new version not on npm| SR[release-from-source.yml workflow_call]
     R --> W[Windows build]
+    SR --> W
     R --> M[macOS arm64 build]
+    SR --> M
     R --> I[macOS x64 build]
+    SR --> I
     R --> L[Linux build]
+    SR --> L
     W --> G[GitHub Release]
     M --> G
     I --> G
     L --> G
+    SR --> PR[GitHub pre-release]
 ```
 
 ## Security Notes

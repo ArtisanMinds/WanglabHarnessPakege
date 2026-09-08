@@ -19,10 +19,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22.22.0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
+
+      - name: Test independent model supplier routes
+        shell: bash
+        run: |
+          npm ci --prefix scripts/model-relays --ignore-scripts --no-audit --no-fund
+          node --test scripts/model-relays/*.test.mjs
 
       - name: Install pinned DSH dependencies
         shell: bash
@@ -44,6 +50,7 @@ jobs:
           node ../scripts/apply-wanglab-localization.mjs
           node ../scripts/apply-wanglab-model-discovery.mjs
           node --test ../scripts/model-discovery.test.mjs
+          node ../scripts/smoke-native.mjs
           node ../scripts/smoke-core.mjs
 
       - name: Remove development files
@@ -57,7 +64,7 @@ jobs:
         shell: bash
         working-directory: build_dir
         run: |
-          7z a ../deepseek-harness-pkg-windows.zip node_modules package.json package-lock.json patches
+          7z a ../deepseek-harness-pkg-windows.zip node_modules package.json package-lock.json
 
       - name: Upload Windows archive
         uses: actions/upload-artifact@v4
@@ -79,7 +86,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: wanglab-core-dsh-0.1.2-rc.1-desktop-0.2.2
+          RELEASE_TAG: wanglab-core-dsh-0.1.2-rc.1-desktop-0.3.0
         run: |
-          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.2-rc.1 for Desktop 0.2.2"
+          if EXISTING_COMMIT="$(gh release view "$RELEASE_TAG" --json targetCommitish --jq '.targetCommitish' 2>/dev/null)"; then
+            test "$EXISTING_COMMIT" = "$GITHUB_SHA" || { echo 'Refusing to overwrite a release from another commit'; exit 1; }
+          else
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.2-rc.1 for Desktop 0.3.0" --notes 'Built with Node 22.22.0 for Desktop 0.3.0. Native terminal and Core startup checks passed before packaging.'
+          fi
           gh release upload "$RELEASE_TAG" release-assets/deepseek-harness-pkg-windows.zip --clobber

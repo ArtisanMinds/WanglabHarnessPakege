@@ -1,0 +1,254 @@
+name: Build and Pre-release DeepSeek Harness from Source
+
+on:
+  workflow_dispatch:
+    inputs:
+      dsh_version:
+        description: '上游 GitHub Release 版本（例如: 0.1.2-alpha.1）'
+        required: true
+  workflow_call:
+    inputs:
+      dsh_version:
+        description: '上游 GitHub Release 版本'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build from source on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, macos-15-intel, ubuntu-latest]
+        include:
+          - os: windows-latest
+            artifact_name: deepseek-harness-pkg-windows.zip
+          - os: macos-latest
+            artifact_name: deepseek-harness-pkg-macos-arm64.zip
+          - os: macos-15-intel
+            artifact_name: deepseek-harness-pkg-macos-x64.zip
+          - os: ubuntu-latest
+            artifact_name: deepseek-harness-pkg-linux.zip
+
+    steps:
+      - name: Checkout packaging repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 与 desktop 捆绑运行时保持一致（src-tauri/src/config/constants.rs 的 NODE_VERSION），
+          # 避免预编译原生模块（fs-ext 等）与运行时 ABI 不匹配。
+          node-version: 22.22.0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Clone upstream release source
+        shell: bash
+        env:
+          DSH_VERSION: ${{ inputs.dsh_version || github.event.inputs.dsh_version }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "dsh-v${DSH_VERSION}" https://github.com/deepseek-ai/deepseek-harness.git upstream
+
+      - name: Configure shippable upstream node_modules layout
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          # deploy otherwise creates junctions/symlinks that cannot safely move
+          # between machines inside a zip archive.
+          cat >> pnpm-workspace.yaml <<'EOF'
+
+          nodeLinker: hoisted
+          shamefullyHoist: true
+          publicHoistPattern:
+            - '*'
+          EOF
+
+      - name: Install upstream dependencies
+        shell: bash
+        working-directory: upstream
+        run: pnpm install
+
+      - name: Include required runtime-closure peers and regenerate lockfile
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          # The `dsh-python-runtime-closure` deploy root (`python/sdk-runtime`)
+          # lists only direct deps. A profile plugin that needs a sibling package
+          # solely through peerDependencies (e.g. `dsh-session-title-first-prompt-llm`
+          # -> `dsh-session-title-llm`) is NOT pulled into the hoisted deploy, so
+          # the shipped closure crashes at boot with ERR_MODULE_NOT_FOUND
+          # (`Cannot find package '@deepseek-ai/dsh-session-title-llm'`). Pin the
+          # required workspace peers as direct deps of the closure manifest; the
+          # regenerate install below bakes them into the lockfile before deploy.
+          node --input-type=module - <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs'
+          const manifest = JSON.parse(readFileSync('python/sdk-runtime/package.json', 'utf8'))
+          manifest.dependencies ||= {}
+          for (const name of [
+            '@deepseek-ai/dsh-session-title-llm',
+            '@deepseek-ai/dsh-session-title-first-prompt-llm',
+            '@deepseek-ai/dsh-session-title-all-prompts-llm',
+            '@deepseek-ai/dsh-util-workspace-path',
+            '@deepseek-ai/cordis',
+          ]) {
+            manifest.dependencies[name] ||= 'workspace:^'
+          }
+          const sorted = {}
+          for (const key of Object.keys(manifest.dependencies).sort()) sorted[key] = manifest.dependencies[key]
+          manifest.dependencies = sorted
+          writeFileSync('python/sdk-runtime/package.json', JSON.stringify(manifest, null, 2) + '\n')
+          JS
+          # Regenerate the upstream lockfile so the peers are installed as prod deps.
+          pnpm install --no-frozen-lockfile
+
+      - name: Build upstream
+        shell: bash
+        working-directory: upstream
+        env:
+          # Official client build profile: without it the client bundles embed no
+          # DSH_CLIENT_BUILD_PROFILE / DSH_CLIENT_TITLE, so dsh-client-ui-brand-official
+          # bails (`{}.DSH_CLIENT_BUILD_PROFILE !== "official"`) and the sidebar shows
+          # the "DSH Local Build" fallback badge instead of the DeepSeek Harness brand.
+          # commit/version are auto-filled from the git checkout by scripts/build.ts.
+          DSH_BUILD_CLIENT_PROFILE: official
+        run: pnpm run build
+
+      - name: Verify upstream runtime closure
+        shell: bash
+        working-directory: upstream
+        run: pnpm run verify-runtime-closure
+
+      - name: Deploy complete upstream runtime closure
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          pnpm deploy --filter dsh-python-runtime-closure --prod build_dir --legacy
+
+      - name: Arrange standalone package and command shim
+        shell: bash
+        working-directory: upstream/build_dir
+        env:
+          DSH_VERSION: ${{ inputs.dsh_version || github.event.inputs.dsh_version }}
+        run: |
+          set -euo pipefail
+          mkdir -p node_modules/.bin patches
+          # pnpm may create .bin entries as links to the package target;
+          # remove them before writing standalone shims, otherwise writing the
+          # shim would overwrite @deepseek-ai/dsh/lib/bin.js itself.
+          rm -f node_modules/.bin/dsh node_modules/.bin/dsh.cmd node_modules/.bin/dsh.ps1
+          cp ../../patches/* patches/ 2>/dev/null || true
+          cat > package.json <<EOF
+          {
+            "name": "deepseek-harness-pkg",
+            "version": "${DSH_VERSION}",
+            "private": true,
+            "description": "Source-built pre-release of DeepSeek Harness"
+          }
+          EOF
+
+          cat > node_modules/.bin/dsh <<'EOF'
+          #!/bin/sh
+          basedir=$(dirname "$0")
+          exec node "$basedir/../@deepseek-ai/dsh/lib/bin.js" "$@"
+          EOF
+          chmod +x node_modules/.bin/dsh
+
+          cat > node_modules/.bin/dsh.cmd <<'EOF'
+          @ECHO off
+          SETLOCAL
+          SET "_prog=node"
+          "%_prog%" "%~dp0\..\@deepseek-ai\dsh\lib\bin.js" %*
+          ENDLOCAL
+          EXIT /b %errorlevel%
+          EOF
+
+          cat > node_modules/.bin/dsh.ps1 <<'EOF'
+          #!/usr/bin/env pwsh
+          $basedir = Split-Path $MyInvocation.MyCommand.Definition -Parent
+          & node "$basedir/../@deepseek-ai/dsh/lib/bin.js" $args
+          exit $LASTEXITCODE
+          EOF
+
+      - name: Apply dsh-web-app patch
+        shell: bash
+        working-directory: upstream/build_dir
+        run: node ../../scripts/apply-dsh-web-app-patch.mjs
+
+      - name: Verify runtime closure and source-built CLI
+        shell: bash
+        working-directory: upstream/build_dir
+        run: |
+          set -euo pipefail
+          grep -q 'DSH_PKG_ALLOW_LAN' node_modules/@deepseek-ai/dsh-web-app/lib/startup.js
+          test -f node_modules/@deepseek-ai/dsh/lib/bin.js
+          test -f node_modules/.bin/dsh
+          # Required peers are not necessarily pulled by a CLI-only deploy.
+          # Keep this exact smoke import to catch the failure seen in desktop.
+          test -f node_modules/@deepseek-ai/cordis/package.json
+          test -f node_modules/@deepseek-ai/cordis-plugin-group/package.json
+          node --input-type=module -e "import('@deepseek-ai/dsh-app-boot').then(() => console.log('runtime closure OK'))"
+          # Peer-only deps embedded in a loaded profile plugin are the class of
+          # failure the desktop hit (ERR_MODULE_NOT_FOUND on
+          # @deepseek-ai/dsh-session-title-llm). Importing the profile plugin
+          # exercises its peer resolution; fail loudly if the closure is incomplete.
+          node --input-type=module -e "import('@deepseek-ai/dsh-session-title-first-prompt-llm').then(() => console.log('session-title closure OK'))"
+          # Exercise the actual shipped launcher, not only a dependency import.
+          node node_modules/@deepseek-ai/dsh/lib/bin.js web --help >/tmp/dsh-web-help.txt
+          grep -q 'Serve the DeepSeek Harness browser UI' /tmp/dsh-web-help.txt
+
+      - name: Cleanup unnecessary files
+        shell: bash
+        working-directory: upstream/build_dir
+        run: |
+          find node_modules -type f \( -name '*.map' -o -name '*.ts' -o -name '*.mts' \) -delete || true
+          find node_modules -type d \( -name test -o -name tests -o -name benchmark -o -name example -o -name demo \) -exec rm -rf {} + || true
+
+      - name: Create archive
+        shell: bash
+        working-directory: upstream/build_dir
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a ../../${{ matrix.artifact_name }} node_modules package.json patches
+          else
+            zip -r ../../${{ matrix.artifact_name }} node_modules package.json patches
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create GitHub pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dsh-src-${{ inputs.dsh_version || github.event.inputs.dsh_version }}-${{ github.run_id }}
+          name: Pre-release-dsh-${{ inputs.dsh_version || github.event.inputs.dsh_version }}
+          body: |
+            # DeepSeek Harness source pre-release
+            - Version: ${{ inputs.dsh_version || github.event.inputs.dsh_version }}
+            - Build ID: ${{ github.run_id }}
+            - Built from upstream GitHub Release source because npm did not yet publish this version.
+            - 使用说明见仓库 README.md
+          draft: false
+          prerelease: true
+          files: |
+            ./artifacts/**/*.zip

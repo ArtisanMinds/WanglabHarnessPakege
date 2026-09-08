@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/hairyf/deepseek-harness-pkg">
+  <a href="https://github.com/dsh-tauri-desk/deepseek-harness-pkg">
     <img src="public/favicon.svg" width="112" alt="DeepSeek Harness Pkg" />
   </a>
 </p>
@@ -27,21 +27,21 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）是开源的 Agent 工作台，包含 CLI、Web UI 与插件架构。常规安装需要自己装 Node.js、pnpm 并从头构建。
 
-本仓库（参考 [n8n-pkg](https://github.com/hairyf/n8n-pkg)）省掉这些麻烦：固定一个上游 npm 版本、对依赖闭包打补丁，并通过 GitHub Actions 产出 Windows、macOS（Apple Silicon + Intel）、Linux 三个平台可直接运行的 `node_modules` 压缩包。使用者只需从 [Releases](https://github.com/hairyf/deepseek-harness-pkg/releases) 下载对应平台的 zip，解压后运行 `dsh web` 即可。
+本仓库（参考 [n8n-pkg](https://github.com/hairyf/n8n-pkg)）省掉这些麻烦：固定一个上游 npm 版本、对依赖闭包打补丁，并通过 GitHub Actions 产出 Windows、macOS（Apple Silicon + Intel）、Linux 三个平台可直接运行的 `node_modules` 压缩包。使用者只需从 [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) 下载对应平台的 zip，解压后运行 `dsh web` 即可。
 
 ## 特性
 
 | | |
 | --- | --- |
-| **固定版本、可复现** | pnpm 工作区固定单个上游版本（`@deepseek-ai/dsh`），补丁记录在 `patches/`，锁文件一并提交。 |
-| **补丁依赖闭包** | 通过 `patchedDependencies` 对依赖闭包内的包打补丁，包括 `dsh web` 的局域网访问开关。 |
+| **固定版本、可复现** | pnpm 工作区固定单个上游版本（`@deepseek-ai/dsh`），锁文件一并提交。 |
+| **补丁依赖闭包** | 构建期脚本为依赖闭包内的 `dsh web` 打上局域网访问开关。 |
 | **跨平台产物** | CI 为 Windows、macOS（arm64 + x64）、Linux 构建压缩包并发布为 GitHub Release。 |
 | **自动同步上游** | 定时工作流监听 npm 上新的 `dsh` 版本，发现后自动触发重新构建。 |
 | **开箱即用** | 每个产物都是纯 npm 项目 —— 解压后直接运行 `node_modules` 里的 `dsh` 命令即可。 |
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/hairyf/deepseek-harness-pkg/releases) 页面下载对应平台的产物。
+1. 从 [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) 页面下载对应平台的产物。
 2. 解压。
 3. 运行：
 
@@ -62,12 +62,13 @@ Web UI 会打开在 `http://127.0.0.1:3080`。首次使用需要在界面里配�
 ```text
 .
 ├── .github/workflows/
-│   ├── release.yml                 # 跨平台构建 + 发布 Release（可手动触发或被 sync 调用）
-│   └── sync-release.yml            # 定时检测上游新版本，自动触发构建（自动同步）
+│   ├── release.yml                 # 基于 npm 的跨平台构建 + 发布
+│   ├── release-from-source.yml     # GitHub-only 版本的源码构建 + pre-release
+│   ├── sync-release.yml             # 定时检测 npm 版本并自动构建
+│   └── sync-source-release.yml      # 定时检测 GitHub Release 并触发源码构建
 ├── scripts/
 │   └── apply-dsh-web-app-patch.mjs # 幂等补丁脚本（换版本也能自动打上 LAN 开关补丁）
-├── patches/                        # pnpm 补丁（patchedDependencies，固定版本可复现）
-├── pnpm-workspace.yaml             # nodeLinker/构建脚本策略/patchedDependencies 等（pnpm 11 设置统一在此）
+├── pnpm-workspace.yaml             # nodeLinker/构建脚本策略等（pnpm 11 设置统一在此）
 ├── package.json                    # 固定 @deepseek-ai/dsh 版本
 └── pnpm-lock.yaml                  # 锁文件
 ```
@@ -86,7 +87,7 @@ pnpm build              # 产出 prod 部署目录 build_dir/
 
 进入仓库的 Actions 页面，手动触发 **Build and Release DeepSeek Harness**：
 
-- `dsh_version`：要打包的 dsh 版本，默认 `0.1.0-rc.6`（需与 `patches/` 中补丁所针对的版本匹配，否则构建会因补丁失配而失败）。
+- `dsh_version`：要打包的 dsh 版本，默认使用 `package.json` 中声明的版本（`0.1.2-rc.1`）。
 
 构建完成后会自动创建形如 `dsh-<版本>-<run_id>` 的 GitHub Release，附四个平台的 zip：
 
@@ -101,7 +102,7 @@ pnpm build              # 产出 prod 部署目录 build_dir/
 
 ### dsh-web-app：局域网访问（默认关闭）
 
-上游 `dsh web` 出于安全考虑拒绝 `--host 0.0.0.0`（会向网络暴露远程代码执行面）。`patches/dsh-web-app@0.1.0-rc.6.patch` 补丁将其改为**显式环境变量开关**：
+上游 `dsh web` 出于安全考虑拒绝 `--host 0.0.0.0`（会向网络暴露远程代码执行面）。构建期补丁脚本（`scripts/apply-dsh-web-app-patch.mjs`）将其改为**显式环境变量开关**：
 
 ```sh
 # 默认仍拒绝 0.0.0.0
@@ -113,37 +114,42 @@ DSH_PKG_ALLOW_LAN=1 dsh web --host 0.0.0.0 --trusted-host <局域网IP>:3080
 
 > ⚠️ 安全警告：`--host 0.0.0.0` 会允许局域网任意设备访问你的会话与工具执行能力。仅建议在受信网络/内网环境使用，并配合 `--trusted-host` 限制 `/api` 信任域。
 
-### 新增/更新补丁
+### LAN 开关如何生效
 
-```sh
-pnpm patch @deepseek-ai/dsh-web-app   # 修改后 pnpm patch-commit 生成 .patch
-```
-
-随后在 `pnpm-workspace.yaml` 的 `patchedDependencies` 登记（注意版本号必须与锁文件解析结果一致）。升级 dsh 版本时，`patches/` 需要同步更新。
+`scripts/apply-dsh-web-app-patch.mjs` 在打包时幂等应用（见 `release.yml` / `release-from-source.yml` 中的 "Apply dsh-web-app patch" 步骤）：它只需上游 guard 行存在即可，若上游修改了该 guard 会明确失败并提示更新脚本。仓库不再使用 pnpm `patchedDependencies` —— 之前的 `patches/dsh-web-app@0.1.0-rc.6.patch` 已随版本升级过期而被移除。
 
 ## 自动同步上游 Release
 
-仓库内置 `sync-release.yml` 工作流：
+仓库内置两条互补的定时工作流：
 
-- **触发**：每 6 小时定时检查一次；也可在 Actions 页手动触发（可指定 `version`，或用 `force=true` 强制重建）。
-- **同步信号**：上游 `deepseek-ai/deepseek-harness` 目前不发布 GitHub Release，因此以 npm 的 `@deepseek-ai/dsh` 已发布版本为准；工作流通过 `scripts/resolve-latest-dsh-version.mjs` 取**已发布版本中 semver 最高者**（覆盖 `latest`、`next` 等所有 dist-tag，而不只是 `latest` —— 上游可能把新 rc 标在 `next` 上而 `latest` 仍是旧版）。发现新版本后自动以 `workflow_call` 调用 `release.yml`，无需手动点按钮，也无需配置 PAT。
-- **补丁容错**：换新版本时，`patchedDependencies` 中旧版本的补丁条目会被 pnpm 忽略（`allowUnusedPatches: true`），构建产物中的 `dsh-web-app` 由 `scripts/apply-dsh-web-app-patch.mjs` 幂等打上 LAN 开关补丁——只要上游保留 `0.0.0.0` 拦截逻辑即可自动适配；若上游改动了相关代码，脚本会明确报错提示更新。
-- **发布年龄门禁**：pnpm 11 默认会拒绝“太新”的依赖，已在 `pnpm-workspace.yaml` 用 `minimumReleaseAge: 0` 关闭，保证上游发布后立即可同步。`dangerouslyAllowAllBuilds: true` 允许新版本中未知的原生依赖执行构建脚本（与 n8n-pkg 的 `allow-scripts=true`、npm 默认行为一致）；若想收紧供应链，可换回显式 `allowBuilds` 名单。
+- **npm 路径 — `sync-release.yml`**：每 6 小时检查一次，也可手动触发。通过 `scripts/resolve-latest-dsh-version.mjs` 取 npm 所有 dist-tag（`latest`、`next` 等）中 **semver 最高的已发布版本**，然后调用 `release.yml`；npm Release 完成后会同步更新 `main` 和锁文件。
+- **GitHub-only 路径 — `sync-source-release.yml`**：每 6 小时检查上游 GitHub Release 中 semver 最高的版本是否高于 npm `@deepseek-ai/dsh`。如果 GitHub 已发布而 npm 尚未发布，就调用 `release-from-source.yml`：克隆准确的 `dsh-v<version>` tag，执行 `pnpm install` 和 `pnpm run build`，部署构建后的 workspace 闭包，并将四个平台压缩包发布为 GitHub **pre-release**。由于该版本还不能从 npm 安装，源码 pre-release 不会更新 `main`。
+- **幂等性**：源码发布使用 `dsh-src-<version>-<run_id>` tag；源码工作流会跳过已经发布过的版本，npm 工作流会忽略 pre-release，因此两条路径不会反复互相触发。
+- **补丁容错**：`scripts/apply-dsh-web-app-patch.mjs` 会幂等地给产物中的 `dsh-web-app` 重新应用 LAN 开关补丁；如果上游修改了相关 guard，则明确失败并提示更新脚本。
+
+手动进行源码构建时，在 Actions 中触发 **Build and Pre-release DeepSeek Harness from Source**，填写不带 `dsh-v` 前缀的上游版本，例如 `0.1.2-alpha.1`。
 
 工作流引用关系：
 
 ```mermaid
 flowchart LR
     N[npm @deepseek-ai/dsh 已发布版本中 semver 最高] --> S[sync-release.yml 每6h检测]
-    S -->|发现新版本| R[release.yml workflow_call]
+    S -->|发现 npm 新版本| R[release.yml workflow_call]
+    U[上游 GitHub Release] --> SS[sync-source-release.yml 每6h检测]
+    SS -->|发现 npm 尚未发布的版本| SR[release-from-source.yml workflow_call]
     R --> W[Windows 构建]
+    SR --> W
     R --> M[macOS arm64 构建]
+    SR --> M
     R --> I[macOS x64 构建]
+    SR --> I
     R --> L[Linux 构建]
+    SR --> L
     W --> G[GitHub Release]
     M --> G
     I --> G
     L --> G
+    SR --> PR[GitHub pre-release]
 ```
 
 ## 安全说明

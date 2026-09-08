@@ -1,0 +1,82 @@
+name: Sync GitHub Release Source Pre-release
+
+# 当上游 GitHub Release 已发布、但对应版本尚未发布到 npm 时，
+# 从上游源码构建并以 pre-release 形式发布。
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '手动指定上游 GitHub Release 版本（例如: 0.1.2-alpha.1）'
+        required: false
+        default: ''
+      force:
+        description: '即使版本已经构建也强制重新构建'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      changed: ${{ steps.resolve.outputs.changed }}
+    steps:
+      - name: Checkout packaging repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 与 desktop 捆绑运行时保持一致（src-tauri/src/config/constants.rs 的 NODE_VERSION），
+          # 避免预编译原生模块（fs-ext 等）与运行时 ABI 不匹配。
+          node-version: 22.22.0
+
+      - name: Resolve GitHub-only release
+        id: resolve
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          manual_version="${{ github.event.inputs.version }}"
+          force="${{ github.event.inputs.force }}"
+          target="$manual_version"
+
+          if [ -z "$target" ]; then
+            npm_latest="$(node scripts/resolve-latest-dsh-version.mjs)"
+            target="$(node scripts/resolve-latest-github-release-version.mjs --min-version="$npm_latest")"
+          fi
+
+          already_released="false"
+          if [ -n "$target" ] && gh release list --limit 100 --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease == true) | .tagName' \
+            | grep -qF "dsh-src-${target}-"; then
+            already_released="true"
+          fi
+
+          changed="false"
+          if [ -n "$target" ] && [ "$already_released" != "true" ]; then
+            changed="true"
+          fi
+          if [ "$force" = "true" ] && [ -n "$target" ]; then
+            changed="true"
+          fi
+
+          echo "target version: ${target:-<none>}"
+          echo "already source-released: $already_released"
+          echo "changed: $changed"
+          echo "version=$target" >> "$GITHUB_OUTPUT"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/release-from-source.yml
+    with:
+      dsh_version: ${{ needs.sync.outputs.version }}
