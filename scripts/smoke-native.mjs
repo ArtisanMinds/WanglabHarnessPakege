@@ -27,23 +27,27 @@ const terminal = pty.spawn(windows ? (process.env.ComSpec || 'cmd.exe') : '/bin/
     env: process.env,
   });
 
-await new Promise((accept, reject) => {
-  let output = '';
-  const timer = setTimeout(() => {
-    try { terminal.kill(); } catch {}
-    reject(new Error('Native terminal did not finish within 15 seconds'));
-  }, 15000);
-  terminal.onData(chunk => { output += chunk; });
-  terminal.onExit(({ exitCode }) => {
-    clearTimeout(timer);
-    try {
-      assert.equal(exitCode, 0, 'Native shell must exit successfully');
-      assert.ok(output.includes(marker), 'Native shell must return its output');
-      accept();
-    } catch (error) {
-      reject(error);
-    }
+try {
+  await new Promise((accept, reject) => {
+    let output = '';
+    const timer = setTimeout(() => {
+      reject(new Error('Native terminal did not finish within 15 seconds'));
+    }, 15000);
+    terminal.onData(chunk => { output += chunk; });
+    terminal.onExit(({ exitCode }) => {
+      clearTimeout(timer);
+      try {
+        assert.equal(exitCode, 0, 'Native shell must exit successfully');
+        assert.ok(output.includes(marker), 'Native shell must return its output');
+        accept();
+      } catch (error) {
+        reject(error);
+      }
+    });
   });
-});
+} finally {
+  // ConPTY keeps its output worker alive until the terminal is disposed.
+  terminal.kill();
+}
 
 console.log(`Native modules and terminal passed with Node ${process.versions.node}, ABI ${process.versions.modules}`);
