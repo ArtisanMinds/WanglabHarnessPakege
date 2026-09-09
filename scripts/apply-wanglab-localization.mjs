@@ -20,6 +20,12 @@ function replace(file, before, after, ...previous) {
 
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
+  'className: WelcomeNotice_module_css_default.copy,\n\t\t\t\t\t\tchildren: paragraphs.map',
+  'className: WelcomeNotice_module_css_default.copy,\n\t\t\t\t\t\tstyle: { textAlign: "justify" },\n\t\t\t\t\t\tchildren: paragraphs.map',
+)
+
+replace(
+  'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'const DEEPSEEK_PUBLIC_BASE_URL = "https://api.deepseek.com";',
   'const DEEPSEEK_PUBLIC_BASE_URL = "https://10.201.2.89:31417/v1";',
 )
