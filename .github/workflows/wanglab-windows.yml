@@ -117,11 +117,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: wanglab-core-dsh-0.1.2-rc.1-desktop-0.3.2
+          RELEASE_TAG: wanglab-core-dsh-0.1.2-rc.1-desktop-0.3.2-r2
         run: |
           if EXISTING_COMMIT="$(gh release view "$RELEASE_TAG" --json targetCommitish --jq '.targetCommitish' 2>/dev/null)"; then
             test "$EXISTING_COMMIT" = "$GITHUB_SHA" || { echo 'Refusing to overwrite a release from another commit'; exit 1; }
           else
-            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.2-rc.1 for Desktop 0.3.2" --notes 'Built with Node 22.22.0 for Desktop 0.3.2, retaining the Core version recommended by upstream Desktop v0.11.2. Updates the first-run introduction title in Chinese and English. Native terminal and Core startup checks passed before packaging.'
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.2-rc.1 for Desktop 0.3.2" --notes 'Built with Node 22.22.0 for Desktop 0.3.2, retaining the Core version recommended by upstream Desktop v0.11.2. Uses About Us as the first-run introduction title in every locale, with the English introduction preserved. Native terminal and Core startup checks passed before packaging.'
           fi
           gh release upload "$RELEASE_TAG" release-assets/deepseek-harness-pkg-windows.zip --clobber

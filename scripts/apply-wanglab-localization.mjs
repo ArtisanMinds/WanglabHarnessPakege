@@ -32,7 +32,7 @@ replace(
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
   'welcomeTitle: "内测声明",',
-  'welcomeTitle: "Wanglab 介绍",',
+  'welcomeTitle: "About Us",',
   'welcomeTitle: "Wanglab Harness 内测",',
 )
 replace(
