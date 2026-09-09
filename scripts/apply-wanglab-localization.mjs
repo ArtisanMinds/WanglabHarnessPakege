@@ -6,17 +6,16 @@ import { resolve } from 'node:path'
 const sourceRoot = resolve(import.meta.dirname, '..')
 const targetRoot = resolve(process.cwd())
 
-function replace(file, before, after, previous) {
+function replace(file, before, after, ...previous) {
   const path = resolve(targetRoot, file)
   const source = readFileSync(path, 'utf8')
-  if (source.includes(after))
-    return
-  if (!source.includes(before) && previous && source.includes(previous))
-    before = previous
-  if (!source.includes(before)) {
+  const anchor = [before, ...previous].find(value => source.includes(value))
+  if (!anchor) {
+    if (source.includes(after))
+      return
     throw new Error(`Wanglab localization anchor missing: ${file}: ${before.slice(0, 120)}`)
   }
-  writeFileSync(path, source.replaceAll(before, after))
+  writeFileSync(path, source.replaceAll(anchor, after))
 }
 
 replace(
@@ -34,6 +33,7 @@ replace(
   'welcomeTitle: "内测声明",',
   'welcomeTitle: "About Us",',
   'welcomeTitle: "Wanglab Harness 内测",',
+  'welcomeTitle: "Wanglab 介绍",',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
