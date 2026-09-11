@@ -1,11 +1,11 @@
 {
   "name": "deepseek-harness-pkg",
   "version": "0.1.5-rc.2",
-  "description": "Packaged DeepSeek Harness (dsh) with pnpm patches, built for cross-platform distribution.",
+  "description": "Packaged DeepSeek Harness (dsh) with a build-time LAN-access patch, built for cross-platform distribution.",
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "engines": {
-    "node": "^22.19.0"
+    "node": ">=22.19.0"
   },
   "scripts": {
     "start": "dsh web",
