@@ -19,7 +19,7 @@ before(async () => {
   server = http.createServer((req, res) => {
     requests.push({ path: req.url, headers: req.headers });
     res.setHeader('content-type', 'application/json');
-    if (req.headers.authorization !== 'Bearer sk-test') {
+    if (req.headers.authorization !== 'Bearer sk-test' && req.headers['x-api-key'] !== 'sk-test') {
       res.writeHead(401);
       res.end('{}');
       return;
@@ -33,15 +33,16 @@ after(() => new Promise(resolve => server.close(resolve)));
 
 test('native OpenAI uses the configured endpoint and returns only its advertised models', async () => {
   const models = await discoverModels({ provider: 'openai', api: 'openai-responses', baseURL: `${base}/prefix/v1`, apiKey: 'sk-test' });
-  assert.deepEqual(models, [{ id: 'remote-only-model', contextWindow: 123456 }]);
+  assert.deepEqual(models, [{ id: 'remote-only-model', name: 'remote-only-model', contextWindow: 123456 }]);
   assert.equal(requests.at(-1).path, '/prefix/v1/models');
 });
 
 test('Anthropic discovers using its own credential and /v1/models path', async () => {
   await discoverModels({ provider: 'anthropic', api: 'anthropic-messages', baseURL: base }, () => ({ resolveApiKey: () => 'sk-test' }));
-  assert.equal(requests.at(-1).path, '/v1/models');
+  assert.equal(requests.at(-1).path, '/v1/models?limit=1000');
   assert.equal(requests.at(-1).headers['x-api-key'], 'sk-test');
   assert.equal(requests.at(-1).headers['anthropic-version'], '2023-06-01');
+  assert.equal(requests.at(-1).headers.authorization, undefined);
 });
 
 test('failed endpoint authentication never falls back to the installed model catalog', async () => {
@@ -56,7 +57,7 @@ test('a provider-only request discovers from its saved connection instead of his
   });
   assert.equal(reads, 1);
   assert.deepEqual(models.map(model => model.id), ['remote-only-model']);
-  assert.equal(requests.at(-1).path, '/v1/models');
+  assert.equal(requests.at(-1).path, '/v1/models?limit=1000');
   assert.equal(requests.at(-1).headers['x-api-key'], 'sk-test');
 });
 
@@ -80,7 +81,10 @@ test('Grok keeps xAI metadata while using the requested Responses protocol', () 
 
 test('new GPT IDs use family metadata without maintaining a separate effort table', () => {
   const catalog = new Map(getBuiltinModels('openai').map(model => [model.id, model]));
-  assert.equal(modelDefaults(catalog, 'openai', 'gpt-6-astra'), catalog.get('gpt-5.5'));
+  assert.equal(modelDefaults(catalog, 'openai', 'gpt-6-astra'), catalog.get('gpt-6-astra'));
+  const olderCatalog = new Map(catalog);
+  olderCatalog.delete('gpt-6-astra');
+  assert.equal(modelDefaults(olderCatalog, 'openai', 'gpt-6-astra'), catalog.get('gpt-5.5'));
   assert.equal(modelDefaults(catalog, 'openai', 'gpt-5.6-sol'), catalog.get('gpt-5.6-sol'));
   assert.equal(modelDefaults(catalog, 'openai', 'unrelated-model'), undefined);
 });

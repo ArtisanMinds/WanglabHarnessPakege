@@ -101,8 +101,8 @@ replace(
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js',
-  'productTitle: "DeepSeek Harness",',
-  'productTitle: "Wanglab Harness",',
+  'const productTitle = "DeepSeek Harness";',
+  'const productTitle = "Wanglab Harness";',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
@@ -147,7 +147,7 @@ replace(
 replace(
   'node_modules/@deepseek-ai/dsh-web-search-deepseek/lib/index.js',
   'const USER_AGENT = "deepseek-harness/0.0.1";',
-  'const USER_AGENT = "wanglab-harness/0.2.0";',
+  'const USER_AGENT = "wanglab-harness/0.4.0";',
 )
 replace(
   'node_modules/@deepseek-ai/dsh-web-search-deepseek/lib/index.js',
