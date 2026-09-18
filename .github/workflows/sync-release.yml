@@ -19,11 +19,6 @@ on:
         required: false
         type: boolean
         default: false
-      allow_large_artifacts:
-        description: '跳过体积预算（仅在已确认体积来源时使用）'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -101,7 +96,6 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       dsh_version: ${{ needs.sync.outputs.version }}
-      allow_large_artifacts: ${{ github.event.inputs.allow_large_artifacts == 'true' }}
 
   # Sync & Release 完成后，把 main 分支上的版本号（@deepseek-ai/dsh 依赖
   # 以及本仓库自身 version）同步为本次同步的版本，并实时推送到 main。

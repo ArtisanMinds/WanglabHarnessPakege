@@ -256,11 +256,9 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Check artifact size budget
-        # 体积闸门：超预算直接失败并打印构成，避免膨胀悄悄把上传推成超时。
-        # 源码构建产物的历史基准是单包 ~46 MiB / 合计 ~183 MiB（2026-09-06 实测），
-        # 这里按 ~2x 标定。
-        run: node scripts/check-artifact-size.mjs --dir=./artifacts --max-file-mib=64 --max-total-mib=320
+      - name: Report artifact sizes
+        # 只报告、不拦截（原因见 release.yml 的 "Report artifact sizes"）。
+        run: node scripts/check-artifact-size.mjs --dir=./artifacts
 
       - name: Delete stale drafts for this version
         # 上一次尝试失败会留下半成品 draft；draft 没有 git ref，既不会被

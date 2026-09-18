@@ -32,8 +32,8 @@ const cases = [
     name: '向子 workflow 传未声明的 input',
     mutate: (text) =>
       text.replace(
-        /^      allow_large_artifacts: \$\{\{ github\.event\.inputs\.allow_large_artifacts == 'true' \}\}$/m,
-        "      allow_large_artifacts: ${{ github.event.inputs.allow_large_artifacts == 'true' }}\n      typo_input: 'x'",
+        /^      dsh_version: \$\{\{ needs\.sync\.outputs\.version \}\}$/m,
+        "      dsh_version: ${{ needs.sync.outputs.version }}\n      typo_input: 'x'",
       ),
     expect: /未声明的 input `typo_input`/,
   },

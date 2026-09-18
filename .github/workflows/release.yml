@@ -7,24 +7,12 @@ on:
         description: '要打包的 dsh 版本 (例如: 0.1.2-rc.1 或 latest)'
         required: true
         default: '0.1.2-rc.1'
-      allow_large_artifacts:
-        description: '跳过体积预算（仅在确认体积来源后使用，例如上游把 LibreOfficeKit 引擎作为硬依赖引入）'
-        required: false
-        type: boolean
-        default: false
   workflow_call:
     inputs:
       dsh_version:
         description: '要打包的 dsh 版本 (例如: 0.1.2-rc.1 或 latest)'
         required: true
         type: string
-      # 复用型 workflow 不会自动继承调用方的 input，必须显式声明，
-      # 否则 sync-release.yml 传进来的 allow_large_artifacts 会被静默忽略。
-      allow_large_artifacts:
-        description: '跳过体积预算'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -142,30 +130,23 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Check artifact size budget
-        # 体积闸门：超预算直接失败并打印构成，避免下次膨胀又悄悄溜过去、
-        # 把退化通道上的上传推成超时。先和上一个已发布版本对比，让膨胀趋势
-        # （alpha.1 的 ~156 MiB -> alpha.2 的 ~534 MiB）直接可见。
-        if: ${{ inputs.allow_large_artifacts != true && github.event.inputs.allow_large_artifacts != 'true' }}
+      - name: Report artifact sizes
+        # 只报告、不拦截。体积暴涨（alpha.1 的 ~156 MiB -> alpha.2 的 ~534 MiB）
+        # 来自上游的硬依赖 dsh-office-to-pdf -> @deepseek-ai/libreoffice-kit
+        # （Windows 325 MiB 原生引擎 / Linux 185 MiB wasm）：libreoffice-kit 的
+        # resolveEngine() 在 Windows/macOS 上强制原生引擎包、没有 wasm 回退，
+        # 所以躲不掉，也就不设闸门。把数字打进日志，膨胀仍然可见。
+        # 需要定位来源时用：node scripts/zip-footprint.mjs <产物.zip>
         run: |
           set -euo pipefail
+          node scripts/check-artifact-size.mjs --dir=./artifacts
+
           previous_tag="$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName')"
           if [ -n "$previous_tag" ]; then
-            echo "当前已发布版本 ${previous_tag} 的资产体积:"
+            echo "上一个已发布版本 ${previous_tag} 的资产体积（对比用）:"
             gh release view "$previous_tag" --json assets \
               --jq '.assets[] | "  \(.size)  \(.name)"' || true
-          else
-            echo "没有可对比的历史版本"
           fi
-          # npm 部署产物的历史基准是单包 ~37 MiB / 合计 ~156 MiB，这里按
-          # 1.7x / 1.6x 标定，而不是按当前现状贴边设（贴边设会漏掉同类回归）。
-          node scripts/check-artifact-size.mjs --dir=./artifacts --max-file-mib=64 --max-total-mib=256
-
-      - name: Note skipped size budget
-        if: ${{ inputs.allow_large_artifacts == true || github.event.inputs.allow_large_artifacts == 'true' }}
-        run: |
-          echo "::warning::allow_large_artifacts=true —— 已跳过体积预算检查" >&2
-          echo "体积来源应已排查：node scripts/zip-footprint.mjs <产物.zip>"
 
       - name: Delete stale drafts for this version
         # 上一次尝试失败会留下半成品 draft；draft 没有 git ref，既不会被
