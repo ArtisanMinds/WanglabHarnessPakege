@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/dsh-tauri-desk/deepseek-harness-pkg">
+  <a href="https://github.com/dsh-tauri/deepseek-harness-pkg">
     <img src="public/favicon.svg" width="112" alt="DeepSeek Harness Pkg" />
   </a>
 </p>
@@ -27,7 +27,7 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）是开源的 Agent 工作台，包含 CLI、Web UI 与插件架构。常规安装需要自己装 Node.js、pnpm 并从头构建。
 
-本仓库（参考 [n8n-pkg](https://github.com/hairyf/n8n-pkg)）省掉这些麻烦：固定一个上游 npm 版本、对依赖闭包打补丁，并通过 GitHub Actions 产出 Windows、macOS（Apple Silicon + Intel）、Linux 三个平台可直接运行的 `node_modules` 压缩包。使用者只需从 [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) 下载对应平台的 zip，解压后运行 `dsh web` 即可。
+本仓库（参考 [n8n-pkg](https://github.com/hairyf/n8n-pkg)）省掉这些麻烦：固定一个上游 npm 版本、对依赖闭包打补丁，并通过 GitHub Actions 产出 Windows、macOS（Apple Silicon + Intel）、Linux 三个平台可直接运行的 `node_modules` 压缩包。使用者只需从 [Releases](https://github.com/dsh-tauri/deepseek-harness-pkg/releases) 下载对应平台的 zip，解压后运行 `dsh web` 即可。
 
 ## 特性
 
@@ -41,7 +41,7 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/dsh-tauri-desk/deepseek-harness-pkg/releases) 页面下载对应平台的产物。
+1. 从 [Releases](https://github.com/dsh-tauri/deepseek-harness-pkg/releases) 页面下载对应平台的产物。
 2. 解压。
 3. 运行：
 
@@ -55,7 +55,7 @@ node_modules\.bin\dsh.cmd web
 
 Web UI 会打开在 `http://127.0.0.1:3080`。首次使用需要在界面里配置模型提供方（API Key），详见 [DeepSeek Harness 官方文档](https://github.com/deepseek-ai/deepseek-harness)。
 
-> 要求：Node.js `^22.19.0` 或 `>=24.0.0`。产物是纯 npm 项目，无需全局安装 pnpm。
+> 要求：Node.js `>=22.19.0`（CI 构建使用 22.22.0）。产物是纯 npm 项目，无需全局安装 pnpm。
 
 ## 目录结构
 
@@ -64,10 +64,21 @@ Web UI 会打开在 `http://127.0.0.1:3080`。首次使用需要在界面里配�
 ├── .github/workflows/
 │   ├── release.yml                 # 基于 npm 的跨平台构建 + 发布
 │   ├── release-from-source.yml     # GitHub-only 版本的源码构建 + pre-release
-│   ├── sync-release.yml             # 定时检测 npm 版本并自动构建
-│   └── sync-source-release.yml      # 定时检测 GitHub Release 并触发源码构建
+│   ├── sync-release.yml            # 定时检测 npm 版本并自动构建
+│   └── sync-source-release.yml     # 定时检测 GitHub Release 并触发源码构建
 ├── scripts/
-│   └── apply-dsh-web-app-patch.mjs # 幂等补丁脚本（换版本也能自动打上 LAN 开关补丁）
+│   ├── apply-dsh-web-app-patch.mjs               # 幂等应用 LAN 开关补丁（上游 guard 变更时明确失败）
+│   ├── check-artifact-size.mjs                   # 报告发布产物体积（只报告、不拦截）
+│   ├── check-workflows.mjs                       # 本地自检 .github/workflows/*.yml
+│   ├── selftest-check-workflows.mjs              # check-workflows.mjs 的反向测试（仅本地自检）
+│   ├── delete-stale-drafts.mjs                   # 清理同版本残留的 draft release，保证重跑幂等
+│   ├── prune-node-modules.mjs                    # 打包前瘦身 node_modules 并输出体积报告
+│   ├── resolve-latest-dsh-version.mjs            # 取 npm 所有 dist-tag 中 semver 最高的已发布版本
+│   ├── resolve-latest-github-release-version.mjs # 取上游 GitHub Release 中 semver 最高的版本
+│   ├── wait-for-npm-version.mjs                  # 轮询 npm，等刚发布的版本 tarball 真正可下载
+│   └── zip-footprint.mjs                         # 只读汇总 zip 的体积构成（不解压）
+├── public/
+│   └── favicon.svg                 # README 图标
 ├── pnpm-workspace.yaml             # nodeLinker/构建脚本策略等（pnpm 11 设置统一在此）
 ├── package.json                    # 固定 @deepseek-ai/dsh 版本
 └── pnpm-lock.yaml                  # 锁文件
@@ -78,7 +89,7 @@ Web UI 会打开在 `http://127.0.0.1:3080`。首次使用需要在界面里配�
 要求：Node.js `>=22.19`（推荐 24）、pnpm `11.x`（仓库已声明 `packageManager: pnpm@11.7.0`）。
 
 ```sh
-pnpm install            # 安装依赖并应用补丁
+pnpm install            # 安装依赖；LAN 补丁仅在 CI 打包步骤显式应用
 pnpm start              # 本地直接运行：dsh web（http://127.0.0.1:3080）
 pnpm build              # 产出 prod 部署目录 build_dir/
 ```
@@ -87,7 +98,7 @@ pnpm build              # 产出 prod 部署目录 build_dir/
 
 进入仓库的 Actions 页面，手动触发 **Build and Release DeepSeek Harness**：
 
-- `dsh_version`：要打包的 dsh 版本，默认使用 `package.json` 中声明的版本（`0.1.2-rc.1`）。
+- `dsh_version`（必填）：要打包的 dsh 版本。Actions 表单会预填 `release.yml` 中写死的默认值（`0.1.2-rc.1`）；Wanglab Desktop 0.6.0 配套包在 `package.json` 中固定 `@deepseek-ai/dsh` 为 `0.1.5-rc.3`。需要时可填写 `latest` 或其他明确版本。
 
 构建完成后会自动创建形如 `dsh-<版本>-<run_id>` 的 GitHub Release，附四个平台的 zip：
 
@@ -125,6 +136,7 @@ DSH_PKG_ALLOW_LAN=1 dsh web --host 0.0.0.0 --trusted-host <局域网IP>:3080
 - **npm 路径 — `sync-release.yml`**：每 6 小时检查一次，也可手动触发。通过 `scripts/resolve-latest-dsh-version.mjs` 取 npm 所有 dist-tag（`latest`、`next` 等）中 **semver 最高的已发布版本**，然后调用 `release.yml`；npm Release 完成后会同步更新 `main` 和锁文件。
 - **GitHub-only 路径 — `sync-source-release.yml`**：每 6 小时检查上游 GitHub Release 中 semver 最高的版本是否高于 npm `@deepseek-ai/dsh`。如果 GitHub 已发布而 npm 尚未发布，就调用 `release-from-source.yml`：克隆准确的 `dsh-v<version>` tag，执行 `pnpm install` 和 `pnpm run build`，部署构建后的 workspace 闭包，并将四个平台压缩包发布为 GitHub **pre-release**。由于该版本还不能从 npm 安装，源码 pre-release 不会更新 `main`。
 - **幂等性**：源码发布使用 `dsh-src-<version>-<run_id>` tag；源码工作流会跳过已经发布过的版本，npm 工作流会忽略 pre-release，因此两条路径不会反复互相触发。
+- **发布传播**：刚发布的版本可能先进 packument（版本列表），tarball 稍后才可下载，这个窗口里 `pnpm add` 会拿到 `ERR_PNPM_FETCH_404`。因此 `release.yml` 先跑 `preflight` job：`scripts/wait-for-npm-version.mjs` 轮询 tarball（最多 10 分钟），确认可下载后才 fan-out 到四个平台构建。
 - **补丁容错**：`scripts/apply-dsh-web-app-patch.mjs` 会幂等地给产物中的 `dsh-web-app` 重新应用 LAN 开关补丁；如果上游修改了相关 guard，则明确失败并提示更新脚本。
 
 手动进行源码构建时，在 Actions 中触发 **Build and Pre-release DeepSeek Harness from Source**，填写不带 `dsh-v` 前缀的上游版本，例如 `0.1.2-alpha.1`。
@@ -164,7 +176,7 @@ flowchart LR
 | 项目 | 用途 |
 | --- | --- |
 | [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) | 上游 `dsh`（CLI + Web UI + 插件架构） |
-| [deepseek-harness-desktop](https://github.com/hairyf/deepseek-harness-desktop) | 一键桌面应用，消费本仓库产出的预构建包 |
+| [deepseek-harness-desktop](https://github.com/dsh-tauri/deepseek-harness-desktop) | 一键桌面应用，消费本仓库产出的预构建包 |
 | [n8n-pkg](https://github.com/hairyf/n8n-pkg) | 本仓库所参考的打包分发仓库 |
 
 ## 致谢
