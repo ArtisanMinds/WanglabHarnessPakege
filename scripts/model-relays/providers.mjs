@@ -6,6 +6,10 @@ import { parse } from 'smol-toml';
 export const DATABASE = process.env.WANGLAB_CC_SWITCH_DB || join(homedir(), '.cc-switch/cc-switch.db');
 export const FAMILIES = ['deepseek', 'grok'];
 const MAX_BYTES = 4 * 1024 * 1024;
+const CATALOG_MODELS = new Map([
+  ['openai', new Set(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra'])],
+  ['anthropic', new Set(['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5'])],
+]);
 
 function openDatabase(database, readOnly = true) {
   const db = new DatabaseSync(database, { readOnly });
@@ -79,9 +83,7 @@ export function acceptsModel(family, id) {
   if (typeof id !== 'string') return false;
   if (family === 'deepseek') return /^deepseek[-/]/i.test(id);
   if (family === 'grok') return /^grok-/i.test(id);
-  if (family === 'anthropic') return /^claude-/i.test(id);
-  if (family !== 'openai') return false;
-  return /^(gpt-\d|o\d)/i.test(id) && !/(?:audio|realtime|transcribe|tts)/i.test(id);
+  return CATALOG_MODELS.get(family)?.has(id) ?? false;
 }
 
 function selectedRow(db, family) {

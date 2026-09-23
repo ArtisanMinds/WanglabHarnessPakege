@@ -19,7 +19,9 @@ async function listen(t, server) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 
-async function fixture(t) {
+async function fixture(t, catalog = [
+  { id: 'gpt-6-astra' }, { id: 'claude-fable-5' }, { id: 'deepseek-new' }, { id: 'grok-4.6' },
+]) {
   const dir = await mkdtemp(join(tmpdir(), 'wanglab-routes-'));
   const file = join(dir, 'cc-switch.db');
   const db = new DatabaseSync(file);
@@ -34,9 +36,7 @@ async function fixture(t) {
     requests.push({ path: req.url, headers: req.headers, body: Buffer.concat(chunks).toString() });
     const path = new URL(req.url, 'http://localhost').pathname;
     if (path.endsWith('/models')) {
-      const data = path.startsWith('/empty/') ? [{ id: 'gpt-6' }] : [
-        { id: 'gpt-6' }, { id: 'claude-fable-5' }, { id: 'deepseek-new' }, { id: 'grok-4.6' },
-      ];
+      const data = path.startsWith('/empty/') ? [{ id: 'gpt-6-astra' }] : catalog;
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ data }));
     } else {
@@ -57,6 +57,10 @@ async function fixture(t) {
     db.prepare('INSERT INTO providers(id, app_type, name, settings_config, is_current) VALUES (?, ?, ?, ?, ?)')
       .run(id, 'codex', id, JSON.stringify({ auth: { OPENAI_API_KEY: `key-${id}` }, config: `model_provider = "custom"\n[model_providers.custom]\nbase_url = "${origin}/${id}/v1"\n` }), active);
   }
+  db.prepare('INSERT INTO providers(id, app_type, name, settings_config, is_current) VALUES (?, ?, ?, ?, ?)')
+    .run('claude-a', 'claude', 'claude-a', JSON.stringify({ env: {
+      ANTHROPIC_BASE_URL: `${origin}/claude-a/v1`, ANTHROPIC_AUTH_TOKEN: 'key-claude-a',
+    } }), 1);
   return { db, file, origin, add, requests };
 }
 
@@ -106,9 +110,51 @@ test('DeepSeek and Grok switch independently using cc-switch OpenCode suppliers'
 
   db.exec("UPDATE providers SET is_current = CASE WHEN id = 'codex-b' THEN 1 ELSE 0 END WHERE app_type = 'codex'");
   response = await fetch(`${catalog}/openai/v1/models`);
-  assert.deepEqual((await response.json()).data.map(model => model.id), ['gpt-6']);
+  assert.deepEqual((await response.json()).data.map(model => model.id), ['gpt-6-astra']);
   assert.equal(requests.at(-1).headers.authorization, 'Bearer key-codex-b');
   assert.equal(loadFamilyProvider('grok', file).id, 'shared');
+});
+
+test('OpenAI and Claude catalogs remove aliases and retired models without inventing availability', async t => {
+  const upstreamModels = [
+    { id: 'gpt-5.6-sol', display_name: 'GPT-5.6 Sol' },
+    { id: 'gpt-6-astra', display_name: 'GPT-6 Astra', context_window: 1000000 },
+    { id: 'gpt-6', display_name: 'GPT-6 (Astra)' },
+    { id: 'gpt-5.6', display_name: 'GPT-5.6 (Sol)' },
+    { id: 'gpt-5.6-terra', display_name: 'GPT-5.6 Terra' },
+    { id: 'gpt-5.6-luna' }, { id: 'gpt-5.5' }, { id: 'gpt-5.4-mini' },
+    { id: 'claude-fable-5' }, { id: 'claude-opus-5' }, { id: 'claude-sonnet-5' },
+    { id: 'claude-opus-4-8' }, { id: 'claude-sonnet-4-6' }, { id: 'claude-haiku-4-5-20251001' },
+    { id: 'deepseek-new' }, { id: 'grok-4.6' },
+  ];
+  const { file, requests } = await fixture(t, upstreamModels);
+  const server = await listen(t, createCatalogServer(file));
+  const openai = await fetch(`${server}/openai/v1/models`);
+  assert.equal(openai.status, 200);
+  const openaiModels = (await openai.json()).data;
+  assert.deepEqual(openaiModels.map(model => model.id), ['gpt-5.6-sol', 'gpt-6-astra', 'gpt-5.6-terra']);
+  assert.deepEqual(openaiModels[1], upstreamModels[1]);
+  assert.equal(requests.at(-1).path, '/codex-a/v1/models');
+  assert.equal(requests.at(-1).headers.authorization, 'Bearer key-codex-a');
+
+  const claude = await fetch(`${server}/anthropic/v1/models`);
+  assert.equal(claude.status, 200);
+  assert.deepEqual((await claude.json()).data.map(model => model.id), ['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5']);
+  assert.equal(requests.at(-1).path, '/claude-a/v1/models');
+  assert.equal(requests.at(-1).headers['x-api-key'], 'key-claude-a');
+
+  upstreamModels.splice(0, upstreamModels.length, { id: 'gpt-5.6-terra' }, { id: 'claude-sonnet-5' });
+  for (const [family, id] of [['openai', 'gpt-5.6-terra'], ['anthropic', 'claude-sonnet-5']]) {
+    const response = await fetch(`${server}/${family}/v1/models`);
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).data, [{ id }]);
+  }
+  upstreamModels.length = 0;
+  for (const family of ['openai', 'anthropic']) {
+    const response = await fetch(`${server}/${family}/v1/models`);
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).data, []);
+  }
 });
 
 test('unsupported selections and deleted suppliers never fall back to another provider', async t => {
