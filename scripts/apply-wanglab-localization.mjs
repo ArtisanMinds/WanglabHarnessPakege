@@ -104,6 +104,48 @@ replace(
   'const productTitle = "DeepSeek Harness";',
   'const productTitle = "Wanglab Harness";',
 )
+
+replace(
+  'node_modules/@deepseek-ai/dsh-system-prompt/lib/index.js',
+  'text: "You are an AI agent powered by DeepSeek Harness."',
+  'text: "You are an AI coding agent powered by Wanglab Harness."',
+)
+
+const modelSelectedPersona = 'You are a coding agent operating through the model provider selected by the user.'
+for (const file of [
+  'node_modules/@deepseek-ai/dsh-web-app/cordis.patch.yml',
+  'node_modules/@deepseek-ai/dsh-sdk-app/cordis.patch.yml',
+  'node_modules/@deepseek-ai/dsh-headless/cordis.patch.yml',
+  'node_modules/@deepseek-ai/dsh-acp-app/cordis.patch.yml',
+  'node_modules/@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml',
+  'node_modules/@deepseek-ai/dsh-agent-presets/presets/ptc/agent.cordis.yml',
+]) {
+  replace(
+    file,
+    'You are a coding agent powered by the {{model}} model.',
+    modelSelectedPersona,
+  )
+}
+replace(
+  'node_modules/@deepseek-ai/dsh-agent-presets/presets/cordis/agent.cordis.yml',
+  'You are a coding agent powered by the {{model}} model, running on the DeepSeek Harness.',
+  modelSelectedPersona,
+)
+
+replace(
+  'node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js',
+  `case "plugin": return {
+\t\t\t\t\trole: "inject",
+\t\t\t\t\tlabel: readString(record, "plugin") ?? kind
+\t\t\t\t};`,
+  `case "plugin": {
+\t\t\t\t\tconst plugin = readString(record, "plugin");
+\t\t\t\t\treturn {
+\t\t\t\t\t\trole: "inject",
+\t\t\t\t\t\tlabel: plugin === "@deepseek-ai/dsh-system-prompt" ? "Wanglab Harness" : plugin ?? kind
+\t\t\t\t\t};
+\t\t\t\t}`,
+)
 replace(
   'node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
   '"hero.headline": "探索未至之境",',
