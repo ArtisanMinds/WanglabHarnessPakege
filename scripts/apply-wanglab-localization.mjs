@@ -111,6 +111,27 @@ replace(
   'text: "You are an AI coding agent powered by Wanglab Harness."',
 )
 
+replace(
+  'node_modules/@deepseek-ai/dsh-web-app/lib/index.js',
+  'through the DeepSeek Harness Web GUI',
+  'through the Wanglab Harness Web GUI',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-web-app/lib/index.js',
+  'Canonical local URL of the DeepSeek Harness Web GUI serving this session.',
+  'Canonical local URL of the Wanglab Harness Web GUI serving this session.',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-app-boot/lib/index.js',
+  'The DeepSeek Harness implementation checkout is at',
+  'The Wanglab Harness implementation checkout is at',
+)
+replace(
+  'node_modules/@deepseek-ai/dsh-skill-badge/lib/index.js',
+  'Add the official “powered by dsh” badge to documents, pull requests, merge requests, and other content produced with DeepSeek Harness. Use whenever creating a pull request or merge request. Also use when the user asks for a dsh badge, powered-by-dsh attribution, or a reusable dsh badge asset or snippet.',
+  'Add the official “powered by Wanglab Harness” badge to documents, pull requests, merge requests, and other content produced with Wanglab Harness. Use whenever creating a pull request or merge request. Also use when the user asks for a Wanglab Harness badge, powered-by-Wanglab-Harness attribution, or a reusable Wanglab Harness badge asset or snippet.',
+)
+
 const modelSelectedPersona = 'You operate through the model provider selected by the user.'
 for (const file of [
   'node_modules/@deepseek-ai/dsh-web-app/cordis.patch.yml',

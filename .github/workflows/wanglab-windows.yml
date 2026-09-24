@@ -118,11 +118,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: wanglab-core-dsh-0.1.5-rc.3-desktop-0.7.1-r2
+          RELEASE_TAG: wanglab-core-dsh-0.1.5-rc.3-desktop-0.7.1-r3
         run: |
           if EXISTING_COMMIT="$(gh release view "$RELEASE_TAG" --json targetCommitish --jq '.targetCommitish' 2>/dev/null)"; then
             test "$EXISTING_COMMIT" = "$GITHUB_SHA" || { echo 'Refusing to overwrite a release from another commit'; exit 1; }
           else
-            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.5-rc.3 for Desktop 0.7.1" --notes 'Built with Node 22.22.0 for Desktop 0.7.1 and upstream Desktop v0.17.0. Replaces the model-facing identity and visible system-context source with Wanglab Harness while preserving durable Core identifiers and existing sessions. Model routing, localization, native terminal, and Core startup checks passed before packaging.'
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Wanglab Harness Core 0.1.5-rc.3 for Desktop 0.7.1" --notes 'Built with Node 22.22.0 for Desktop 0.7.1 and upstream Desktop v0.17.0. Replaces all model-visible DeepSeek Harness branding, the fixed-model persona, and the visible system-context source with Wanglab Harness while preserving durable Core identifiers and existing sessions. Model routing, localization, native terminal, and Core startup checks passed before packaging.'
           fi
           gh release upload "$RELEASE_TAG" release-assets/deepseek-harness-pkg-windows.zip --clobber

@@ -14,6 +14,14 @@ const personaFiles = [
   'node_modules/@deepseek-ai/dsh-agent-presets/presets/cordis/agent.cordis.yml',
 ];
 
+const modelVisibleFiles = [
+  'node_modules/@deepseek-ai/dsh-system-prompt/lib/index.js',
+  'node_modules/@deepseek-ai/dsh-web-app/lib/index.js',
+  'node_modules/@deepseek-ai/dsh-app-boot/lib/index.js',
+  'node_modules/@deepseek-ai/dsh-skill-badge/lib/index.js',
+  ...personaFiles,
+];
+
 test('first-run introduction uses About Us and the English copy in every locale', () => {
   const path = resolve('node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js');
   const before = readFileSync(path, 'utf8');
@@ -42,6 +50,21 @@ test('model-facing identity and personas identify Wanglab without claiming a fix
     assert.doesNotMatch(source, /deepseek-flash model/, file);
     assert.doesNotMatch(source, /You are a coding agent operating through/, file);
   }
+
+  for (const file of modelVisibleFiles) {
+    const source = readFileSync(resolve(file), 'utf8');
+    assert.doesNotMatch(source, /DeepSeek Harness/, file);
+  }
+
+  const webApp = readFileSync(resolve('node_modules/@deepseek-ai/dsh-web-app/lib/index.js'), 'utf8');
+  assert.match(webApp, /through the Wanglab Harness Web GUI/);
+  assert.match(webApp, /Canonical local URL of the Wanglab Harness Web GUI/);
+
+  const appBoot = readFileSync(resolve('node_modules/@deepseek-ai/dsh-app-boot/lib/index.js'), 'utf8');
+  assert.match(appBoot, /The Wanglab Harness implementation checkout is at/);
+
+  const skillBadge = readFileSync(resolve('node_modules/@deepseek-ai/dsh-skill-badge/lib/index.js'), 'utf8');
+  assert.match(skillBadge, /content produced with Wanglab Harness/);
 });
 
 test('chat presents the system context source as Wanglab while preserving its durable id', () => {
@@ -67,9 +90,8 @@ test('chat presents the system context source as Wanglab while preserving its du
 
 test('all conversation branding patches are idempotent', () => {
   const files = [
-    'node_modules/@deepseek-ai/dsh-system-prompt/lib/index.js',
     'node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js',
-    ...personaFiles,
+    ...modelVisibleFiles,
   ];
   const before = new Map(files.map(file => [file, readFileSync(resolve(file), 'utf8')]));
   execFileSync(process.execPath, [resolve(import.meta.dirname, 'apply-wanglab-localization.mjs')]);
