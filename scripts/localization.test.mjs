@@ -37,9 +37,10 @@ test('model-facing identity and personas identify Wanglab without claiming a fix
 
   for (const file of personaFiles) {
     const source = readFileSync(resolve(file), 'utf8');
-    assert.match(source, /You are a coding agent operating through the model provider selected by the user\./, file);
+    assert.match(source, /You operate through the model provider selected by the user\./, file);
     assert.doesNotMatch(source, /You are a coding agent powered by the \{\{model\}\} model/, file);
     assert.doesNotMatch(source, /deepseek-flash model/, file);
+    assert.doesNotMatch(source, /You are a coding agent operating through/, file);
   }
 });
 

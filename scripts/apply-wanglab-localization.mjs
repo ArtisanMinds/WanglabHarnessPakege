@@ -111,7 +111,7 @@ replace(
   'text: "You are an AI coding agent powered by Wanglab Harness."',
 )
 
-const modelSelectedPersona = 'You are a coding agent operating through the model provider selected by the user.'
+const modelSelectedPersona = 'You operate through the model provider selected by the user.'
 for (const file of [
   'node_modules/@deepseek-ai/dsh-web-app/cordis.patch.yml',
   'node_modules/@deepseek-ai/dsh-sdk-app/cordis.patch.yml',
@@ -124,12 +124,14 @@ for (const file of [
     file,
     'You are a coding agent powered by the {{model}} model.',
     modelSelectedPersona,
+    'You are a coding agent operating through the model provider selected by the user.',
   )
 }
 replace(
   'node_modules/@deepseek-ai/dsh-agent-presets/presets/cordis/agent.cordis.yml',
   'You are a coding agent powered by the {{model}} model, running on the DeepSeek Harness.',
   modelSelectedPersona,
+  'You are a coding agent operating through the model provider selected by the user.',
 )
 
 replace(
